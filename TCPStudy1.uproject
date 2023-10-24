@@ -1,0 +1,22 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "{C5EFAB4A-4994-DC6D-4510-4899EB5FCFF2}",
+	"Category": "",
+	"Description": "",
+	"Modules": [
+		{
+			"Name": "TCPStudy1",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "ModelingToolsEditorMode",
+			"Enabled": true,
+			"TargetAllowList": [
+				"Editor"
+			]
+		}
+	]
+}
