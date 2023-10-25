@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "TCP/SocketManager.h"
+#include "SocketManager.h"
 #include "Sockets.h"
 #include "terse/utils/Endianness.h"
 #include "Serialization/ArrayWriter.h"
@@ -72,7 +72,7 @@ bool SocketManager::Send(FSocket* Socket, const uint8* Buffer, int32 Size)
 
 bool SocketManager::SendPacket(FSocket* Socket, const EPacket& PacketType, const uint8* Payload, const int32& PayloadSize)
 {
-	FBufferArchive Buffer = (PayloadSize > 0) ? PacketMaker::MakeBuffer(PacketType, Payload, PayloadSize) : PacketMaker::MakeBuffer(PacketType);
+	FBufferArchive Buffer = (PayloadSize > 0) ? PacketMaker::MakePacket(PacketType, Payload, PayloadSize) : PacketMaker::MakePacket(PacketType);
 
 	// Send it, and make sure it sent it all
 	if (!Send(Socket, Buffer.GetData(), Buffer.Num()))
@@ -173,6 +173,7 @@ void SocketManager::DestroySocket()
 		SocketSubsystem->DestroySocket(Socket);
 
 		Socket = nullptr;
+		delete Socket;
 	}
 }
 

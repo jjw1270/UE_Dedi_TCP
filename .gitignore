@@ -74,3 +74,7 @@ Plugins/*/Intermediate/*
 DerivedDataCache/*
 
 Package/*
+
+TCPServer/config.txt
+TCPServer/x64/*
+TCPServer/*

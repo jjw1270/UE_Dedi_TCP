@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "TCP/Packets.h"
 
-// For profiling
+// < For profiling >
 // Declare performance statistics data for a specific group
 // Used for performance profiling and statistics collection
 // Params : Name, Identifier, Category

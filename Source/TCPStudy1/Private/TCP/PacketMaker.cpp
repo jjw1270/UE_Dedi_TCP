@@ -1,10 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "TCP/PacketMaker.h"
+#include "PacketMaker.h"
 #include "terse/utils/Endianness.h"
 
-FBufferArchive PacketMaker::MakeBuffer(const EPacket& PacketType)
+FBufferArchive PacketMaker::MakePacket(const EPacket& PacketType)
 {
 	// Header      Payload
 	//[][][][] [Variable data]
@@ -18,7 +18,7 @@ FBufferArchive PacketMaker::MakeBuffer(const EPacket& PacketType)
 	return BufferArchive;
 }
 
-FBufferArchive PacketMaker::MakeBuffer(const EPacket& PacketType, const uint8* Payload, const int32& PayloadSize)
+FBufferArchive PacketMaker::MakePacket(const EPacket& PacketType, const uint8* Payload, const int32& PayloadSize)
 {
 	// Header      Payload
 	//[][][][] [Variable data]
