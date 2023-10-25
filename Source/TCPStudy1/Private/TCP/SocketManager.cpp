@@ -26,7 +26,7 @@ bool SocketManager::Connect(FSocket* Socket, FString IPAddress, int PortNumber)
 	}
 	else
 	{
-		UE_LOG(LogTemp, Error, TEXT("Socket Connect Failed."));
+		PrintSocketError(TEXT("[Connect]"));
 		return false;
 	}
 }
@@ -38,7 +38,7 @@ bool SocketManager::Receive(FSocket* Socket, uint8* Results, int32 Size)
 	while (Size > 0)
 	{
 		int32 NumRead = 0;
-		Socket->Recv(Results + Offset, Size, NumRead, ESocketReceiveFlags::WaitAll);
+		Socket->Recv(Results + Offset, Size, NumRead);
 		check(NumRead <= Size);
 		// make sure we were able to read at least something (and not too much)
 		if (NumRead <= 0)
@@ -78,6 +78,7 @@ bool SocketManager::SendPacket(FSocket* Socket, const EPacket& PacketType, const
 	if (!Send(Socket, Buffer.GetData(), Buffer.Num()))
 	{
 		UE_LOG(LogTemp, Error, TEXT("Unable To Send."));
+		PrintSocketError(TEXT("[Send]"));
 		return false;
 	}
 	return true;
@@ -85,13 +86,15 @@ bool SocketManager::SendPacket(FSocket* Socket, const EPacket& PacketType, const
 
 bool SocketManager::ReceivePacket(FSocket* Socket, TArray<uint8>& OutPayload)
 {
-	const int32 MaxPacketSize = 1024 * 1024;  // 1MB
-	uint32 PendingDataSize;
-	// If socket has pending data or PendingDataSize <= MaxPacketSize, Recv
-	if (!Socket->HasPendingData(PendingDataSize) || PendingDataSize <= MaxPacketSize)
-	{
-		return false;
-	}
+	// It doesnt work, I dont know reason..
+	//const int32 MaxPacketSize = 1024 * 1024;  // 1MB
+	//uint32 PendingDataSize;
+
+	//// If socket has pending data or PendingDataSize <= MaxPacketSize, Recv
+	//if (!Socket->HasPendingData(PendingDataSize) || PendingDataSize <= MaxPacketSize)
+	//{
+	//	return false;
+	//}
 
 	// Header Size is Fixed 4
 	TArray<uint8> HeaderBuffer;
@@ -101,7 +104,7 @@ bool SocketManager::ReceivePacket(FSocket* Socket, TArray<uint8>& OutPayload)
 	int32 BytesRead = 0;
 	if (!Receive(Socket, HeaderBuffer.GetData(), HeaderBuffer.Num()))
 	{
-		UE_LOG(LogSockets, Error, TEXT("Recv Header Failed."));
+		//PrintSocketError(TEXT("[Receive Header]"));
 		return false;
 	}
 
@@ -115,8 +118,9 @@ bool SocketManager::ReceivePacket(FSocket* Socket, TArray<uint8>& OutPayload)
 	RecvPayloadSize = ntoh(RecvPayloadSize);
 	RecvPacketType = ntoh(RecvPacketType);
 
-	UE_LOG(LogTemp, Log, TEXT("Received Payload Size: %d, Packet Type: %d"), RecvPayloadSize, RecvPacketType);
+	// UE_LOG(LogTemp, Warning, TEXT("Received Payload Size: %d, Packet Type: %d"), RecvPayloadSize, RecvPacketType);
 
+	// Recv Payload
 	if (RecvPayloadSize > 0)
 	{
 		OutPayload.SetNumZeroed(RecvPayloadSize);
@@ -148,11 +152,11 @@ void SocketManager::Connect()
 	Socket->SetReceiveBufferSize(RecvBufferSize, RecvBufferSize);
 
 	FString IPAddress = TEXT("127.0.0.1");
-	uint16 PortNumber = 11230;
+	uint16 PortNumber = 11233;
 
 	if (Connect(Socket, IPAddress, PortNumber))
 	{
-		UE_LOG(LogTemp, Log, TEXT("Socket Connected"));
+		UE_LOG(LogTemp, Warning, TEXT("Socket Connected"));
 	}
 	else
 	{
@@ -199,6 +203,6 @@ void SocketManager::Recv()
 	if (ReceivePacket(Socket, Payload))
 	{
 		FString Data(Payload.Num(), (char*)Payload.GetData());
-		UE_LOG(LogTemp, Log, TEXT("Recv data success.  data : %s  Payload : %d  size : %d"), *Data, Payload.Num(), Data.Len());
+		UE_LOG(LogTemp, Error, TEXT("Recv data success!!!  data : %s  size : %d"), *Data, Data.Len());
 	}
 }

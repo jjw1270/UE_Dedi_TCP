@@ -3,6 +3,7 @@
 
 #include "PacketMaker.h"
 #include "terse/utils/Endianness.h"
+#include "PlatformMisc.h"
 
 FBufferArchive PacketMaker::MakePacket(const EPacket& PacketType)
 {
@@ -49,7 +50,7 @@ FString PacketMaker::MakeHeader(const EPacket& PacketType, const uint16& Payload
 	Header.Append((const TCHAR*)&Size, sizeof(uint16));
 	Header.Append((const TCHAR*)&Type, sizeof(uint16));
 
-	UE_LOG(LogTemp, Warning, TEXT("Header Size : %d"), Header.Len());
+	UE_LOG(LogTemp, Warning, TEXT("Header Size : %d %d"), Size, Type);
 
 	return Header;
 }

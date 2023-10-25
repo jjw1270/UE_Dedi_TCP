@@ -104,7 +104,7 @@ int main()
 
 	Sql_Connection->setSchema("tcpproject");
 	Sql_Connection->setClientOption("charset", "utf8");
-	
+
 	cout << "Starting Server... ";
 
 	WSADATA WsaData;
@@ -130,7 +130,7 @@ int main()
 	memset(&ListenSockAddr, 0, sizeof(ListenSockAddr));
 	ListenSockAddr.sin_family = AF_INET;
 	ListenSockAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	ListenSockAddr.sin_port = htons(7871);
+	ListenSockAddr.sin_port = htons(11233);
 
 	Result = _WINSOCK2API_::bind(ListenSocket, (SOCKADDR*)&ListenSockAddr, sizeof(ListenSockAddr));
 	if (Result == SOCKET_ERROR)
@@ -286,31 +286,43 @@ unsigned WINAPI ServerThread(void* arg)
 
 	printf("[%d] Server Thread Started\n", UserNumber);
 
-	// send req login
-	bool bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_Login_UserIDReq);
+
+	bool bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_LoginSuccess, "hello!");
 	if (!bSendSuccess)
 	{
 		SendError(ClientSocket);
+		return 0;
 	}
-	else
+	
+	while (true)
 	{
-		while (true)
+		// Recv PacketSize
+		char HeaderBuffer[4] = { 0, };
+		int RecvByte = recv(ClientSocket, (char*)(&HeaderBuffer), 4, MSG_WAITALL);
+		if (RecvByte == 0 || RecvByte < 0)
 		{
-			// Recv PacketSize
-			unsigned short PacketSize = 0;
-			int RecvByte = recv(ClientSocket, (char*)(&PacketSize), 2, MSG_WAITALL);
-			if (RecvByte == 0 || RecvByte < 0)
-			{
-				//close, recv Error
-				RecvError(ClientSocket);
-				break;
-			}
+			//close, recv Error
+			RecvError(ClientSocket);
+			break;
+		}
 
+		unsigned short PayloadSize;
+		unsigned short PacketType;
+
+		memcpy(&PayloadSize, HeaderBuffer, 2);
+		memcpy(&PacketType, HeaderBuffer + 2, 2);
+
+		PayloadSize = ntohs(PayloadSize);
+		PacketType = ntohs(PacketType);
+
+		cout << "Receive Header. " << PayloadSize << " " << PacketType << endl;
+
+		if (PayloadSize > 0)
+		{
 			//Recv Code, Data
-			PacketSize = ntohs(PacketSize);
-			char* Buffer = new char[PacketSize];
+			char* Payload = new char[PayloadSize];
 
-			RecvByte = recv(ClientSocket, Buffer, PacketSize, MSG_WAITALL);
+			RecvByte = recv(ClientSocket, Payload, PayloadSize, MSG_WAITALL);
 			if (RecvByte == 0 || RecvByte < 0)
 			{
 				//close, recv Error
@@ -318,330 +330,9 @@ unsigned WINAPI ServerThread(void* arg)
 				break;
 			}
 
-			//code 
-			//[][]
-			unsigned short Code = 0;
-			memcpy(&Code, Buffer, 2);
-			Code = ntohs(Code);
+			cout << "Data : " << Payload << endl;
 
-			// Data
-			unsigned short DataSize = PacketSize - 2;
-			bool bSendSuccess = false;
-			switch ((EPacket)Code)
-			{
-			case EPacket::C2S_Login_UserIDAck:
-			{
-				char UserID[100] = { 0, };
-				memcpy(&UserID, Buffer + 2, DataSize);
-
-				// Check ID Exist in DB
-				string SqlQuery = "SELECT * FROM userconfig WHERE ID = ?";
-				sql::PreparedStatement* Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
-				Sql_PreStatement->setString(1, UserID);
-				sql::ResultSet* Sql_Result = Sql_PreStatement->executeQuery();
-
-				// If ID doesnt exist in db
-				if (Sql_Result->rowsCount() == 0)
-				{
-					//cout << "ID Does Not Exist." << endl;
-
-					// check TempUser already exist in TempUserList
-					if (TempUserList.count(UserNumber) > 0)
-					{
-						TempUserList[UserNumber].UserID = UserID;
-
-						bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_Login_UserIDFailureReq);
-						if (!bSendSuccess)
-						{
-							SendError(ClientSocket);
-							break;
-						}
-					}
-					else
-					{
-						//cout << "Make new Temp User" << endl;
-						UserData NewTempUser(UserID);
-						TempUserList.emplace(UserNumber, NewTempUser);
-
-						bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_Login_UserIDFailureReq);
-						if (!bSendSuccess)
-						{
-							SendError(ClientSocket);
-							break;
-						}
-					}
-				}
-				else
-				{
-					// Confirm ID Success
-					printf("[%d] User Login Requested : %s\n", UserNumber, UserID);
-
-					// check User already exist in UserList
-					if (UserList.count(UserNumber) > 0)
-					{
-						UserList[UserNumber].UserID = UserID;
-					}
-					else
-					{
-						// cout << "Make new User" << endl;
-						UserData NewUser(UserID);
-						UserList.emplace(UserNumber, NewUser);
-					}
-
-					bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_Login_UserPwdReq);
-					if (!bSendSuccess)
-					{
-						SendError(ClientSocket);
-						break;
-					}
-
-					// delete temp user from list
-					if (TempUserList.count(UserNumber > 0))
-					{
-						TempUserList.erase(TempUserList.find(UserNumber));
-					}
-				}
-
-				delete Sql_Result;
-				delete Sql_PreStatement;
-			}
-			break;
-			case EPacket::C2S_Login_MakeNewUserReq:
-			{
-				printf("[%d] Make New User Requested\n", UserNumber);
-
-				bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_Login_NewUserNickNameReq);
-				if (!bSendSuccess)
-				{
-					SendError(ClientSocket);
-					break;
-				}
-			}
-			break;
-			case EPacket::C2S_Login_UserIDReq:
-			{
-				//cout << "C2S_Login_UserIDReq" << endl;
-				bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_Login_UserIDReq);
-				if (!bSendSuccess)
-				{
-					SendError(ClientSocket);
-					break;
-				}
-			}
-			break;
-			case EPacket::C2S_Login_NewUserNickNameAck:
-			{
-				char UserNickName[100] = { 0, };
-				memcpy(&UserNickName, Buffer + 2, DataSize);
-
-				printf("[%d] New User NickName : %s\n", UserNumber, UserNickName);
-
-				// Check NickName already exist in db (NickName cant overlaped)
-				string SqlQuery = "SELECT * FROM userconfig WHERE NickName = ?";
-				sql::PreparedStatement* Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
-				Sql_PreStatement->setString(1, MyUtility::MultibyteToUtf8(UserNickName));
-				sql::ResultSet* Sql_Result = Sql_PreStatement->executeQuery();
-
-				if (Sql_Result->rowsCount() > 0)
-				{
-					//cout << "NickName Already Exist" << endl;
-					bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_CastMessage, "Nick Name Already Exist.");
-					if (!bSendSuccess)
-					{
-						SendError(ClientSocket);
-						break;
-					}
-					bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_Login_NewUserNickNameReq);
-					if (!bSendSuccess)
-					{
-						SendError(ClientSocket);
-						break;
-					}
-				}
-				else
-				{
-					TempUserList[UserNumber].NickName = UserNickName;
-					bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_Login_NewUserPwdReq);
-					if (!bSendSuccess)
-					{
-						SendError(ClientSocket);
-						break;
-					}
-				}
-
-				delete Sql_Result;
-				delete Sql_PreStatement;
-			}
-			break;
-			case EPacket::C2S_Login_NewUserPwdAck:
-			{
-				char NewUserPwd[100] = { 0, };
-				memcpy(&NewUserPwd, Buffer + 2, DataSize);
-
-				// cout << "New User password : " << NewUserPwd << endl;
-
-				// Create New Userconfig
-				string SqlQuery = "INSERT INTO userconfig(ID, Password, NickName) VALUES(?,?,?)";
-				sql::PreparedStatement* Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
-				Sql_PreStatement->setString(1, TempUserList[UserNumber].UserID);
-				Sql_PreStatement->setString(2, NewUserPwd);
-				Sql_PreStatement->setString(3, MyUtility::MultibyteToUtf8(TempUserList[UserNumber].NickName));
-				Sql_PreStatement->execute();
-
-				printf("[%d] New User Registed\n", UserNumber);
-				bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_CastMessage, "<< New User Registed! >>");
-				if (!bSendSuccess)
-				{
-					SendError(ClientSocket);
-					break;
-				}
-				bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_Login_UserIDReq);
-				if (!bSendSuccess)
-				{
-					SendError(ClientSocket);
-					break;
-				}}
-			break;
-			case EPacket::C2S_Login_UserPwdAck:
-			{
-				char UserPwd[100] = { 0, };
-				memcpy(&UserPwd, Buffer + 2, DataSize);
-
-				// cout << "User password : " << UserPwd << endl;
-
-				// Check Password
-				string SqlQuery = "SELECT * FROM userconfig WHERE ID = ?";
-				sql::PreparedStatement* Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
-				Sql_PreStatement->setString(1, UserList[UserNumber].UserID);
-				sql::ResultSet* Sql_Result = Sql_PreStatement->executeQuery();
-
-				if (Sql_Result->next()) {
-					string dbPassword = Sql_Result->getString("Password");
-
-					if (strcmp(UserPwd, dbPassword.c_str()) == 0)
-					{
-						// if correct
-						printf("[%d] Password Matched\n", UserNumber);
-
-						string UserNickName = MyUtility::Utf8ToMultibyte(Sql_Result->getString("NickName"));
-
-						// Check Login Overlaping
-						bool bIsLoginOverlap = false;
-						for (const auto& UserPair : UserList)
-						{
-							if (UserPair.second.NickName == UserNickName)
-							{
-								bIsLoginOverlap = true;
-								break;
-							}
-						}
-
-						if (bIsLoginOverlap)
-						{
-							printf("[%d] Login Overlapped\n", UserNumber);
-							// Login Overlapped
-							bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_CastMessage, "You are already logged in.");
-							if (!bSendSuccess)
-							{
-								SendError(ClientSocket);
-								break;
-							}
-
-							bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_Login_UserIDReq);
-							if (!bSendSuccess)
-							{
-								SendError(ClientSocket);
-								break;
-							}
-
-							break;
-						}
-						else
-						{
-							printf("[%d] Login Success!\n", UserNumber);
-							// Login Success
-							UserList[UserNumber].UserSocket = ClientSocket;
-							UserList[UserNumber].NickName = UserNickName;
-
-							bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_LoginSuccess);
-							if (!bSendSuccess)
-							{
-								SendError(ClientSocket);
-								break;
-							}
-
-							bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_CanChat);
-							if (!bSendSuccess)
-							{
-								SendError(ClientSocket);
-								break;
-							}
-
-							string BroadCastMessage = UserList[UserNumber].NickName + " is here!";
-							PacketMaker::SendPacketToAllConnectedClients(UserList, EPacket::S2C_CastMessage, BroadCastMessage.data(), UserNumber);
-						}
-					}
-					else
-					{
-						// else, Ask Re-Enter Pwd or Re-Enter ID
-						printf("[%d] Password Failure\n", UserNumber);
-
-						bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_Login_UserPwdFailureReq);
-						if (!bSendSuccess)
-						{
-							SendError(ClientSocket);
-							break;
-						}
-					}
-				}
-				else
-				{
-					// DB Error, this will never be executed
-					RecvError(ClientSocket);
-					// cout << "User not found in the database." << endl;
-				}
-
-				delete Sql_Result;
-				delete Sql_PreStatement;
-			}
-			break;
-			case EPacket::C2S_Login_UserPwdReq:
-			{
-				//cout << "C2S_Login_UserPwdReq" << endl;
-				bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_Login_UserPwdReq);
-				if (!bSendSuccess)
-				{
-					SendError(ClientSocket);
-					break;
-				}
-			}
-			break;
-			case EPacket::C2S_Chat:
-			{
-				char RecvChat[1024] = { 0, };
-				memcpy(&RecvChat, Buffer + 2, DataSize);
-
-				printf("[%d] Send Chat : %s\n", UserNumber, RecvChat);
-
-				string ChatUserNickName = UserList[UserNumber].NickName;
-
-				string BroadCastMessage = ChatUserNickName + " : " + RecvChat;
-				PacketMaker::SendPacketToAllConnectedClients(UserList, EPacket::S2C_Chat, BroadCastMessage.data(), UserNumber);
-
-				// Add to User Chatting Log
-				string SqlQuery = "INSERT INTO chatlog(NickName, Chat) VALUES(?,?)";
-				sql::PreparedStatement* Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
-				Sql_PreStatement->setString(1, MyUtility::MultibyteToUtf8(ChatUserNickName));
-				Sql_PreStatement->setString(2, MyUtility::MultibyteToUtf8(RecvChat));
-				Sql_PreStatement->execute();
-
-				delete Sql_PreStatement;
-			}
-			break;
-			default:
-				break;
-			}
-			delete[] Buffer;
+			delete[] Payload;
 		}
 	}
 

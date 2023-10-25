@@ -15,6 +15,13 @@ class ATCPStudy1GameMode : public AGameModeBase
 protected:
 	virtual void StartPlay() override;
 
+	virtual void Tick(float DeltaSeconds) override;
+
+public:
+	FORCEINLINE const SocketManager& GetSocketManager() const { return SocketManager; }
+
 private:
-	SocketManager TCPClient;
+	SocketManager SocketManager;
+
+	TSharedPtr<class RecvThread> pRecvThread;
 };

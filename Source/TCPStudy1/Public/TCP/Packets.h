@@ -7,7 +7,7 @@
 /**
  * 
  */
-UENUM(BlueprintType)
+UENUM()
 enum class EPacket : uint8
 {
 	None = 0,

@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "TCP/Packets.h"
+#include "Packets.h"
 
 // < For profiling >
 // Declare performance statistics data for a specific group

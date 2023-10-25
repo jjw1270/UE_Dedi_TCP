@@ -18,6 +18,8 @@ bool PacketMaker::SendPacket(SOCKET* ClientSocket, EPacket PacketToSend)
 
 bool PacketMaker::SendPacket(SOCKET* ClientSocket, EPacket PacketToSend, const char* MessageToSend)
 {
+	cout << "SendPacket" << endl;
+
 	pair<char*, int> BufferData = MakeBuffer(PacketToSend, MessageToSend);
 
 	int SendByte = send(*ClientSocket, BufferData.first, BufferData.second, 0);
@@ -98,12 +100,12 @@ pair<char*, int> PacketMaker::MakeBuffer(EPacket Type, const char* NewData)
 	return make_pair(Buffer, BufferSize);
 }
 
-char* PacketMaker::MakeHeader(char* Buffer, EPacket Type, unsigned short Size)
+char* PacketMaker::MakeHeader(char* Buffer, EPacket Type, unsigned short PayloadSize)
 {
 	// Header
 	//size code
 	//[][] [][]
-	unsigned short size = htons(Size + 2);
+	unsigned short size = htons(PayloadSize);
 	unsigned short code = htons(static_cast<unsigned short>(Type));
 
 	memcpy(Buffer, &size, 2);
