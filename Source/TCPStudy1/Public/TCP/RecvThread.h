@@ -11,11 +11,11 @@
 
 class FSocket;
 
-class TCPSTUDY1_API RecvThread : public FRunnable
+class TCPSTUDY1_API FRecvThread : public FRunnable
 {
 public:
-	RecvThread(class SocketManager* NewSocketManager);
-	~RecvThread();
+	FRecvThread(TSharedPtr<class FSocketManager> SocketManager);
+	~FRecvThread();
 
 protected:
 	bool Init() override;
@@ -23,7 +23,7 @@ protected:
 	void Exit() override;
 
 private:
-	class SocketManager* pSocketManager;
+	TSharedPtr<class FSocketManager> SocketManager;
 
 	FRunnableThread* Thread;
 

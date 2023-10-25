@@ -3,7 +3,7 @@
 #include "TCPStudy1GameMode.h"
 #include "TCPStudy1.h"
 #include "TCPStudy1Character.h"
-#include "UObject/ConstructorHelpers.h"
+#include "MyGameInstance.h"
 #include "RecvThread.h"
 
 void ATCPStudy1GameMode::StartPlay()
@@ -12,15 +12,26 @@ void ATCPStudy1GameMode::StartPlay()
 
 	ABLOG(Warning, TEXT("GameInstance Start, Connect to TCP"));
 
-	SocketManager.Connect();
+	GI = GetGameInstance<UMyGameInstance>();
+	if (!GI)
+	{
+		ABLOG(Error, TEXT("GI is null"));
+		return;
+	}
 
-	ABLOG(Warning, TEXT("Making Recv Thread..."));
+	GI->InitSocketManager();
 
-	pRecvThread = MakeShared<RecvThread, ESPMode::ThreadSafe>(&SocketManager);
+	if (!GI->GetSocketManager()->Connect())
+	{
+		return;
+	}
 
+	GI->StartRecvThread();
 
-	_sleep(1000);
-	SocketManager.Send(EPacket::C2S_Chat, TEXT("HIHI"));
+	//pRecvThread = MakeShared<RecvThread, ESPMode::ThreadSafe>(&SocketManager);
+
+	//_sleep(1000);
+	//SocketManager.Send(EPacket::C2S_Chat, TEXT("HIHI"));
 }
 
 void ATCPStudy1GameMode::Tick(float DeltaSeconds)

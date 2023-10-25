@@ -3,48 +3,35 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Packets.h"
-
-// < For profiling >
-// Declare performance statistics data for a specific group
-// Used for performance profiling and statistics collection
-// Params : Name, Identifier, Category
-DECLARE_STATS_GROUP(TEXT("SocketManager"), STATGROUP_SocketManager, STATCAT_Advanced);
-// Declare performance statistics data
-// Used to measure the execution time of a particular task or function
-// Parmas : Name, Identifier, Group
-DECLARE_CYCLE_STAT(TEXT("Send"), STAT_Send, STATGROUP_SocketManager);
-DECLARE_CYCLE_STAT(TEXT("Recv"), STAT_Recv, STATGROUP_SocketManager);
+#include "PacketMaker.h"
 
 class FSocket;
 
 /**
- * 
+ * It should be created in the GameInstance.
  */
-class TCPSTUDY1_API SocketManager
+class TCPSTUDY1_API FSocketManager
 {
 
 private:
-	static bool Connect(FSocket* Socket, FString IPAddress, int PortNumber);
-
-	static bool Receive(FSocket* Socket, uint8* Results, int32 Size);
-
-	static bool Send(FSocket* Socket, const uint8* Buffer, int32 Size);
-
-	static bool SendPacket(FSocket* Socket, const EPacket& PacketType, const uint8* Payload, const int32& PayloadSize);
-
-	static bool ReceivePacket(FSocket* Socket, TArray<uint8>& OutPayload);
-
-	static void PrintSocketError(const FString& Text);
+	int32 HeaderSize{ 4 };
 
 public:
-	void Connect();
+	bool Connect();
+
+	bool Recv(FPacketData& OutRecvPacket);
+
+	//bool Send(const FPacketData& ToSendPacket);
 
 	void DestroySocket();
 
-	void Send(const EPacket& PacketType, const FString& MessageToSend);
+private:
+	void PrintSocketError(const FString& Text);
 
-	void Recv();
+private:
+	//static bool Send(FSocket* Socket, const uint8* Buffer, int32 Size);
+
+	//static bool SendPacket(FSocket* Socket, const EPacket& PacketType, const uint8* Payload, const int32& PayloadSize);
 
 private:
 	FSocket* Socket;

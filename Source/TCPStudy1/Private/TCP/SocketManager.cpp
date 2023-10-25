@@ -2,169 +2,51 @@
 
 
 #include "SocketManager.h"
+#include "TCPStudy1.h"
+
 #include "Sockets.h"
+
 #include "terse/utils/Endianness.h"
 #include "Serialization/ArrayWriter.h"
-#include "Common/TcpSocketBuilder.h"
-#include "NetworkMessage.h"
-#include "TCP/PacketMaker.h"
 
-bool SocketManager::Connect(FSocket* Socket, FString IPAddress, int PortNumber)
+#include "SocketSubsystem.h"
+#include "Interfaces/IPv4/IPv4Address.h"
+#include "IPAddress.h"
+
+//#include "Common/TcpSocketBuilder.h"
+//#include "NetworkMessage.h"
+
+
+bool FSocketManager::Connect()
 {
-	FIPv4Address IPAddr;
-	if (!FIPv4Address::Parse(IPAddress, IPAddr))
-	{
-		UE_LOG(LogTemp, Error, TEXT("Ill-formed IP Address"));
-		return false;
-	}
+	Socket = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateSocket(NAME_Stream, TEXT("TCPClientSocket"), false);
 
-	FIPv4Endpoint Endpoint = FIPv4Endpoint(IPAddr, PortNumber);
+	FString IP = TEXT("127.0.0.1");
+	FIPv4Address IPv4Address;
+	FIPv4Address::Parse(IP, IPv4Address);
 
-	if (Socket->Connect(*Endpoint.ToInternetAddr()))
+	TSharedPtr<FInternetAddr> SocketAddress = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
+	SocketAddress->SetPort(11233);
+	SocketAddress->SetIp(IPv4Address.Value);
+
+	if (Socket->Connect(*SocketAddress))
 	{
+		ABLOG(Log, TEXT("Connect TCP Success!"));
+
 		return true;
 	}
 	else
 	{
-		PrintSocketError(TEXT("[Connect]"));
-		return false;
-	}
-}
+		ABLOG(Error, TEXT("Connect TCP Fail."));
+		PrintSocketError(TEXT("Connect"));
 
-// If data size is too big for just one recv, it needs to be called multi times.
-bool SocketManager::Receive(FSocket* Socket, uint8* Results, int32 Size)
-{
-	int32 Offset = 0;
-	while (Size > 0)
-	{
-		int32 NumRead = 0;
-		Socket->Recv(Results + Offset, Size, NumRead);
-		check(NumRead <= Size);
-		// make sure we were able to read at least something (and not too much)
-		if (NumRead <= 0)
-		{
-			return false;
-		}
-
-		// if we read a partial block, move along
-		Offset += NumRead;
-		Size -= NumRead;
-	}
-	return true;
-}
-
-bool SocketManager::Send(FSocket* Socket, const uint8* Buffer, int32 Size)
-{
-	while (Size > 0)
-	{
-		int32 BytesSent = 0;
-		if (!Socket->Send(Buffer, Size, BytesSent))
-		{
-			return false;
-		}
-
-		Size -= BytesSent;
-		Buffer += BytesSent;
-	}
-
-	return true;
-}
-
-bool SocketManager::SendPacket(FSocket* Socket, const EPacket& PacketType, const uint8* Payload, const int32& PayloadSize)
-{
-	FBufferArchive Buffer = (PayloadSize > 0) ? PacketMaker::MakePacket(PacketType, Payload, PayloadSize) : PacketMaker::MakePacket(PacketType);
-
-	// Send it, and make sure it sent it all
-	if (!Send(Socket, Buffer.GetData(), Buffer.Num()))
-	{
-		UE_LOG(LogTemp, Error, TEXT("Unable To Send."));
-		PrintSocketError(TEXT("[Send]"));
-		return false;
-	}
-	return true;
-}
-
-bool SocketManager::ReceivePacket(FSocket* Socket, TArray<uint8>& OutPayload)
-{
-	// It doesnt work, I dont know reason..
-	//const int32 MaxPacketSize = 1024 * 1024;  // 1MB
-	//uint32 PendingDataSize;
-
-	//// If socket has pending data or PendingDataSize <= MaxPacketSize, Recv
-	//if (!Socket->HasPendingData(PendingDataSize) || PendingDataSize <= MaxPacketSize)
-	//{
-	//	return false;
-	//}
-
-	// Header Size is Fixed 4
-	TArray<uint8> HeaderBuffer;
-	HeaderBuffer.AddZeroed(4);
-
-	// Recv header
-	int32 BytesRead = 0;
-	if (!Receive(Socket, HeaderBuffer.GetData(), HeaderBuffer.Num()))
-	{
-		//PrintSocketError(TEXT("[Receive Header]"));
-		return false;
-	}
-
-	uint16 RecvPayloadSize;
-	uint16 RecvPacketType;
-
-	// Get Size and Type from HeaderBuffer
-	FMemory::Memcpy(&RecvPayloadSize, HeaderBuffer.GetData(), sizeof(uint16));
-	FMemory::Memcpy(&RecvPacketType, HeaderBuffer.GetData() + sizeof(uint16), sizeof(uint16));
-
-	RecvPayloadSize = ntoh(RecvPayloadSize);
-	RecvPacketType = ntoh(RecvPacketType);
-
-	// UE_LOG(LogTemp, Warning, TEXT("Received Payload Size: %d, Packet Type: %d"), RecvPayloadSize, RecvPacketType);
-
-	// Recv Payload
-	if (RecvPayloadSize > 0)
-	{
-		OutPayload.SetNumZeroed(RecvPayloadSize);
-
-		if (!Receive(Socket, OutPayload.GetData(), OutPayload.Num()))
-		{
-			return false;
-		}
-	}
-
-	return true;
-}
-
-void SocketManager::PrintSocketError(const FString& Text)
-{
-	ESocketErrors SocketErrorCode = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetLastErrorCode();
-	const TCHAR* SocketError = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetSocketError(SocketErrorCode);
-
-	UE_LOG(LogSockets, Error, TEXT("%s  SocketError : %s"), *Text, SocketError);
-}
-
-void SocketManager::Connect()
-{
-	int32 RecvBufferSize = 2 * 1024 * 1024;
-
-	Socket = FTcpSocketBuilder(TEXT("ClientSocket"));
-	Socket->SetNonBlocking(true);
-
-	Socket->SetReceiveBufferSize(RecvBufferSize, RecvBufferSize);
-
-	FString IPAddress = TEXT("127.0.0.1");
-	uint16 PortNumber = 11233;
-
-	if (Connect(Socket, IPAddress, PortNumber))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Socket Connected"));
-	}
-	else
-	{
 		DestroySocket();
+
+		return false;
 	}
 }
 
-void SocketManager::DestroySocket()
+void FSocketManager::DestroySocket()
 {
 	if (Socket)
 	{
@@ -173,36 +55,129 @@ void SocketManager::DestroySocket()
 			Socket->Close();
 		}
 
-		ISocketSubsystem* SocketSubsystem = ISocketSubsystem::Get();
-		SocketSubsystem->DestroySocket(Socket);
-
-		Socket = nullptr;
-		delete Socket;
+		ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->DestroySocket(Socket);
 	}
 }
 
-void SocketManager::Send(const EPacket& PacketType, const FString& MessageToSend)
+//bool FSocketManager::Send(FSocket* Socket, const uint8* Buffer, int32 Size)
+//{
+//	while (Size > 0)
+//	{
+//		int32 BytesSent = 0;
+//		if (!Socket->Send(Buffer, Size, BytesSent))
+//		{
+//			return false;
+//		}
+//
+//		Size -= BytesSent;
+//		Buffer += BytesSent;
+//	}
+//
+//	return true;
+//}
+
+void FSocketManager::PrintSocketError(const FString& Text)
 {
-	SCOPE_CYCLE_COUNTER(STAT_Send)
-		FTCHARToUTF8 Convert(*MessageToSend);
+	ESocketErrors SocketErrorCode = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetLastErrorCode();
+	const TCHAR* SocketError = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetSocketError(SocketErrorCode);
 
-	FArrayWriter WriterArray;
-	WriterArray.Serialize((UTF8CHAR*)Convert.Get(), Convert.Length());
-
-	if (SendPacket(Socket, PacketType, WriterArray.GetData(), WriterArray.Num()))
-	{
-		UE_LOG(LogTemp, Log, TEXT("Sent Text : %s  Size : %d"), *MessageToSend, WriterArray.Num());
-	}
+	UE_LOG(LogSockets, Error, TEXT("[%s]  SocketError : %s"), *Text, SocketError);
 }
 
-void SocketManager::Recv()
-{
-	SCOPE_CYCLE_COUNTER(STAT_Recv)
-		TArray<uint8> Payload;
+//bool FSocketManager::SendPacket(FSocket* Socket, const EPacket& PacketType, const uint8* Payload, const int32& PayloadSize)
+//{
+//	FBufferArchive Buffer = (PayloadSize > 0) ? PacketMaker::MakePacket(PacketType, Payload, PayloadSize) : PacketMaker::MakePacket(PacketType);
+//
+//	// Send it, and make sure it sent it all
+//	if (!Send(Socket, Buffer.GetData(), Buffer.Num()))
+//	{
+//		UE_LOG(LogTemp, Error, TEXT("Unable To Send."));
+//		PrintSocketError(TEXT("[Send]"));
+//		return false;
+//	}
+//	return true;
+//}
 
-	if (ReceivePacket(Socket, Payload))
+//bool FSocketManager::Send(const FPacketData& ToSendPacket)
+//{
+//
+//
+//
+//	FTCHARToUTF8 Convert(*MessageToSend);
+//
+//	FArrayWriter WriterArray;
+//	WriterArray.Serialize((UTF8CHAR*)Convert.Get(), Convert.Length());
+//
+//	if (SendPacket(Socket, PacketType, WriterArray.GetData(), WriterArray.Num()))
+//	{
+//		UE_LOG(LogTemp, Log, TEXT("Sent Text : %s  Size : %d"), *MessageToSend, WriterArray.Num());
+//	}
+//}
+
+bool FSocketManager::Recv(FPacketData& OutRecvPacket)
+{
+	if (!Socket)
 	{
-		FString Data(Payload.Num(), (char*)Payload.GetData());
-		UE_LOG(LogTemp, Error, TEXT("Recv data success!!!  data : %s  size : %d"), *Data, Data.Len());
+		ABLOG(Error, TEXT("Socket is null"));
+		return false;
+	}
+
+	uint32 PendingDataSize = 0;
+	if (Socket->HasPendingData(PendingDataSize))
+	{
+		// ABLOG(Log, TEXT("PendingDataSize : %u"), PendingDataSize);
+
+		// Header Size : 4 bytes
+		TArray<uint8_t> HeaderBuffer;
+		HeaderBuffer.AddZeroed(HeaderSize);
+
+		// Recv Header
+		int BytesRead = 0;
+		bool bRecvHeader = Socket->Recv(HeaderBuffer.GetData(), HeaderSize, BytesRead);
+
+		if (!bRecvHeader || BytesRead != HeaderSize)
+		{
+			PrintSocketError(TEXT("Receive Header"));
+			return false;
+		}
+
+		uint16 RecvPayloadSize;
+		uint16 RecvPacketType;
+
+		// Get Size and Type from HeaderBuffer
+		FMemory::Memcpy(&RecvPayloadSize, HeaderBuffer.GetData(), sizeof(uint16_t));
+		FMemory::Memcpy(&RecvPacketType, HeaderBuffer.GetData() + sizeof(uint16_t), sizeof(uint16_t));
+
+		RecvPayloadSize = ntoh(RecvPayloadSize);
+		RecvPacketType = ntoh(RecvPacketType);
+
+		OutRecvPacket.PacketType = static_cast<EPacket>(RecvPacketType);
+
+		// Recv Payload
+		if (RecvPayloadSize > 0)
+		{
+			TArray<uint8_t> PayloadBuffer;
+			PayloadBuffer.AddZeroed(RecvPayloadSize);
+
+			BytesRead = 0;
+			bool bRecvPayload = Socket->Recv(PayloadBuffer.GetData(), RecvPayloadSize, BytesRead);
+
+			if (!bRecvPayload || BytesRead != RecvPayloadSize)
+			{
+				PrintSocketError(TEXT("Receive Payload"));
+				return false;
+			}
+
+			FString PayloadString;
+			PayloadString = FString(UTF8_TO_TCHAR(reinterpret_cast<const char*>(PayloadBuffer.GetData())));
+
+			OutRecvPacket.Payload = PayloadString;
+		}
+
+		return true;
+	}
+	else
+	{
+		return false;
 	}
 }

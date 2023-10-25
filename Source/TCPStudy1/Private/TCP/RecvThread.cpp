@@ -5,14 +5,14 @@
 #include "TCPStudy1.h"
 #include "SocketManager.h"
 
-RecvThread::RecvThread(SocketManager* NewSocketManager)
+FRecvThread::FRecvThread(TSharedPtr<FSocketManager> SocketManager)
 {
-	pSocketManager = NewSocketManager;
+	this->SocketManager = SocketManager;
 
 	Thread = FRunnableThread::Create(this, TEXT("RecvThread"));
 }
 
-RecvThread::~RecvThread()
+FRecvThread::~FRecvThread()
 {
 	if (Thread)
 	{
@@ -22,26 +22,31 @@ RecvThread::~RecvThread()
 	}
 }
 
-bool RecvThread::Init()
-{
-	return true;
-}
-
-uint32 RecvThread::Run()
+bool FRecvThread::Init()
 {
 	ABLOG(Warning, TEXT("Start Recv Thread"));
 
-	//pSocketManager->Recv();
+	return true;
+}
+
+uint32 FRecvThread::Run()
+{
 	while (true)
 	{
-		pSocketManager->Recv();
+		FPacketData RecvPacket;
+		if (SocketManager->Recv(RecvPacket))
+		{
+			ABLOG(Warning, TEXT("Recv Type : %d, Recv Payload : %s"), static_cast<int32>(RecvPacket.PacketType), *RecvPacket.Payload);
+		}
+
+		// Make Logic here
+
 	}
 
 	return 0;
 }
 
-void RecvThread::Exit()
+void FRecvThread::Exit()
 {
-	pSocketManager = nullptr;
-	delete pSocketManager;
+	SocketManager.Reset();
 }

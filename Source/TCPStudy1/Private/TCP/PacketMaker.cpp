@@ -3,7 +3,6 @@
 
 #include "PacketMaker.h"
 #include "terse/utils/Endianness.h"
-#include "PlatformMisc.h"
 
 FBufferArchive PacketMaker::MakePacket(const EPacket& PacketType)
 {
@@ -19,7 +18,7 @@ FBufferArchive PacketMaker::MakePacket(const EPacket& PacketType)
 	return BufferArchive;
 }
 
-FBufferArchive PacketMaker::MakePacket(const EPacket& PacketType, const uint8* Payload, const int32& PayloadSize)
+FBufferArchive PacketMaker::MakePacket(const EPacket& PacketType, const uint8_t* Payload, const uint16_t& PayloadSize)
 {
 	// Header      Payload
 	//[][][][] [Variable data]
@@ -30,25 +29,26 @@ FBufferArchive PacketMaker::MakePacket(const EPacket& PacketType, const uint8* P
 	FBufferArchive BufferArchive;
 	BufferArchive << Header;
 
+
 	// Append Payload
 	BufferArchive.Append(Payload, PayloadSize);
 
 	return BufferArchive;
 }
 
-FString PacketMaker::MakeHeader(const EPacket& PacketType, const uint16& PayloadSize)
+FString PacketMaker::MakeHeader(const EPacket& PacketType, const uint16_t& PayloadSize)
 {
 	// Header
 	//size Type
 	//[][] [][]
 
-	uint16 Size = hton(PayloadSize);
-	uint16 Type = hton(StaticCast<uint16>(PacketType));
+	uint16_t Size = hton(PayloadSize);
+	uint16_t Type = hton(StaticCast<uint16_t>(PacketType));
 
 	FString Header;
 
-	Header.Append((const TCHAR*)&Size, sizeof(uint16));
-	Header.Append((const TCHAR*)&Type, sizeof(uint16));
+	Header.Append((const TCHAR*)&Size, sizeof(uint16_t));
+	Header.Append((const TCHAR*)&Type, sizeof(uint16_t));
 
 	UE_LOG(LogTemp, Warning, TEXT("Header Size : %d %d"), Size, Type);
 

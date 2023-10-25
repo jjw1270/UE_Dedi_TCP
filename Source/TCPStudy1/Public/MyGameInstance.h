@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
+#include "SocketManager.h"
 #include "MyGameInstance.generated.h"
 
 /**
@@ -13,5 +14,21 @@ UCLASS()
 class TCPSTUDY1_API UMyGameInstance : public UGameInstance
 {
 	GENERATED_BODY()
+	
+private:
+	// This is only valid on server.
+	TSharedPtr<FSocketManager> SocketManager;
+
+	class FRecvThread* RecvThread;
+
+protected:
+	virtual void Shutdown() override;
+
+public:
+	void InitSocketManager();
+
+	TSharedPtr<FSocketManager> GetSocketManager();
+
+	void StartRecvThread();
 	
 };
