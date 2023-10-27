@@ -7,8 +7,11 @@ enum class EPacket
 {
 	None								= 0,
 
-	S2C_CastMessage						= 1,
-//	C2S_CastMessage						= 2,  //reserved
+	S2C_Ping							= 1,
+	C2S_Ping							= 2,
+
+	S2C_CastMessage						= 3,
+	//C2S_CastMessage					= 4,  //reserved
 
 	S2C_Login_UserIDReq					= 100,
 	C2S_Login_UserIDAck					= 101,

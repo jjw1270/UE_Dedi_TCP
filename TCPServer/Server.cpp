@@ -279,13 +279,14 @@ void SendError(SOCKET& ClientSocket)
 	//}
 }
 
+
+const int HeaderSize = 4;
 unsigned WINAPI ServerThread(void* arg)
 {
 	SOCKET ClientSocket = *(SOCKET*)arg;
 	unsigned short UserNumber = (unsigned short)ClientSocket;
 
 	printf("[%d] Server Thread Started\n", UserNumber);
-
 
 	bool bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_LoginSuccess, "hello!");
 	if (!bSendSuccess)
@@ -297,8 +298,17 @@ unsigned WINAPI ServerThread(void* arg)
 	while (true)
 	{
 		// Recv PacketSize
-		char HeaderBuffer[4] = { 0, };
-		int RecvByte = recv(ClientSocket, (char*)(&HeaderBuffer), 4, MSG_WAITALL);
+		unsigned short PayloadSize = 0;
+		int RecvByte = recv(ClientSocket, (char*)(&PayloadSize), 2, MSG_WAITALL);
+		if (RecvByte == 0 || RecvByte < 0) //close, Error
+		{
+			cout << "Recv Error : " << GetLastError() << endl;
+			break;
+		}
+		//cout << "Receive Payload size : " << PayloadSize << endl;
+
+		unsigned short PacketType = 0;
+		RecvByte = recv(ClientSocket, (char*)(&PacketType), 2, MSG_WAITALL);
 		if (RecvByte == 0 || RecvByte < 0)
 		{
 			//close, recv Error
@@ -306,16 +316,12 @@ unsigned WINAPI ServerThread(void* arg)
 			break;
 		}
 
-		unsigned short PayloadSize;
-		unsigned short PacketType;
-
-		memcpy(&PayloadSize, HeaderBuffer, 2);
-		memcpy(&PacketType, HeaderBuffer + 2, 2);
+		cout << "Receive Packet Payload size : " << PayloadSize << "\nReceive Packet type : " << PacketType << endl;
 
 		PayloadSize = ntohs(PayloadSize);
 		PacketType = ntohs(PacketType);
 
-		cout << "Receive Header. " << PayloadSize << " " << PacketType << endl;
+		cout << "Receive Packet Payload size : " << PayloadSize << "\nReceive Packet type : " << PacketType << endl;
 
 		if (PayloadSize > 0)
 		{

@@ -27,11 +27,11 @@ void ATCPStudy1GameMode::StartPlay()
 	}
 
 	GI->StartRecvThread();
+	GI->StartSendThread();
 
-	//pRecvThread = MakeShared<RecvThread, ESPMode::ThreadSafe>(&SocketManager);
+	GI->SendPacket(EPacket::C2S_Ping);
+	GI->SendPacket(EPacket::C2S_Chat, TEXT("HIHIHIHIHIHI"));
 
-	//_sleep(1000);
-	//SocketManager.Send(EPacket::C2S_Chat, TEXT("HIHI"));
 }
 
 void ATCPStudy1GameMode::Tick(float DeltaSeconds)

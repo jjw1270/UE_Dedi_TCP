@@ -4,9 +4,14 @@
 #include "MyGameInstance.h"
 #include "TCPStudy1.h"
 #include "RecvThread.h"
+#include "SendThread.h"
 
 void UMyGameInstance::Shutdown()
 {
+    delete RecvThread;
+    delete SendThread;
+
+    SocketManager->DestroySocket();
     SocketManager.Reset();
     
     Super::Shutdown();
@@ -34,4 +39,19 @@ TSharedPtr<FSocketManager> UMyGameInstance::GetSocketManager()
 void UMyGameInstance::StartRecvThread()
 {
     RecvThread = new FRecvThread(SocketManager);
+}
+
+void UMyGameInstance::StartSendThread()
+{
+    SendThread = new FSendThread(SocketManager);
+}
+
+void UMyGameInstance::SendPacket(const EPacket& PacketType, const FString& Payload)
+{
+    SendThread->SetSendPacket(PacketType, Payload);
+}
+
+void UMyGameInstance::SendPacket(const EPacket& PacketType)
+{
+    SendThread->SetSendPacket(PacketType, FString());
 }

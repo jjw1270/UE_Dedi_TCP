@@ -21,17 +21,12 @@ public:
 
 	bool Recv(FPacketData& OutRecvPacket);
 
-	//bool Send(const FPacketData& ToSendPacket);
+	bool Send(const FPacketData& ToSendPacket);
 
 	void DestroySocket();
 
 private:
 	void PrintSocketError(const FString& Text);
-
-private:
-	//static bool Send(FSocket* Socket, const uint8* Buffer, int32 Size);
-
-	//static bool SendPacket(FSocket* Socket, const EPacket& PacketType, const uint8* Payload, const int32& PayloadSize);
 
 private:
 	FSocket* Socket;

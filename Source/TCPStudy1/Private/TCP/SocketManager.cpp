@@ -4,18 +4,14 @@
 #include "SocketManager.h"
 #include "TCPStudy1.h"
 
+#include "PacketMaker.h"
 #include "Sockets.h"
-
-#include "terse/utils/Endianness.h"
-#include "Serialization/ArrayWriter.h"
-
 #include "SocketSubsystem.h"
 #include "Interfaces/IPv4/IPv4Address.h"
 #include "IPAddress.h"
 
-//#include "Common/TcpSocketBuilder.h"
-//#include "NetworkMessage.h"
-
+#include "terse/utils/Endianness.h"
+//#include "Serialization/ArrayWriter.h"
 
 bool FSocketManager::Connect()
 {
@@ -59,23 +55,6 @@ void FSocketManager::DestroySocket()
 	}
 }
 
-//bool FSocketManager::Send(FSocket* Socket, const uint8* Buffer, int32 Size)
-//{
-//	while (Size > 0)
-//	{
-//		int32 BytesSent = 0;
-//		if (!Socket->Send(Buffer, Size, BytesSent))
-//		{
-//			return false;
-//		}
-//
-//		Size -= BytesSent;
-//		Buffer += BytesSent;
-//	}
-//
-//	return true;
-//}
-
 void FSocketManager::PrintSocketError(const FString& Text)
 {
 	ESocketErrors SocketErrorCode = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetLastErrorCode();
@@ -84,35 +63,33 @@ void FSocketManager::PrintSocketError(const FString& Text)
 	UE_LOG(LogSockets, Error, TEXT("[%s]  SocketError : %s"), *Text, SocketError);
 }
 
-//bool FSocketManager::SendPacket(FSocket* Socket, const EPacket& PacketType, const uint8* Payload, const int32& PayloadSize)
-//{
-//	FBufferArchive Buffer = (PayloadSize > 0) ? PacketMaker::MakePacket(PacketType, Payload, PayloadSize) : PacketMaker::MakePacket(PacketType);
-//
-//	// Send it, and make sure it sent it all
-//	if (!Send(Socket, Buffer.GetData(), Buffer.Num()))
-//	{
-//		UE_LOG(LogTemp, Error, TEXT("Unable To Send."));
-//		PrintSocketError(TEXT("[Send]"));
-//		return false;
-//	}
-//	return true;
-//}
+bool FSocketManager::Send(const FPacketData& ToSendPacket)
+{
+	TArray<uint8_t> SendBuffer;
+	if (ToSendPacket.Payload.IsEmpty())
+	{
+		ABLOG(Warning, TEXT("Payload Empty"));
+		SendBuffer = PacketMaker::MakePacket(ToSendPacket.PacketType);
+	}
+	else
+	{
+		SendBuffer = PacketMaker::MakePacket(ToSendPacket.PacketType, ToSendPacket.Payload);
+	}
 
-//bool FSocketManager::Send(const FPacketData& ToSendPacket)
-//{
-//
-//
-//
-//	FTCHARToUTF8 Convert(*MessageToSend);
-//
-//	FArrayWriter WriterArray;
-//	WriterArray.Serialize((UTF8CHAR*)Convert.Get(), Convert.Length());
-//
-//	if (SendPacket(Socket, PacketType, WriterArray.GetData(), WriterArray.Num()))
-//	{
-//		UE_LOG(LogTemp, Log, TEXT("Sent Text : %s  Size : %d"), *MessageToSend, WriterArray.Num());
-//	}
-//}
+	int32 SendBufferSize = SendBuffer.Num();
+	ABLOG(Warning, TEXT("SendBuffer Size : %d"), SendBufferSize);
+
+	int32 BytesSent = 0;
+	bool bSendBuffer = Socket->Send(SendBuffer.GetData(), SendBufferSize, BytesSent);
+
+	if (!bSendBuffer || BytesSent != SendBufferSize)
+	{
+		PrintSocketError(TEXT("Send"));
+		return false;
+	}
+	
+	return true;
+}
 
 bool FSocketManager::Recv(FPacketData& OutRecvPacket)
 {
@@ -168,6 +145,7 @@ bool FSocketManager::Recv(FPacketData& OutRecvPacket)
 				return false;
 			}
 
+			//Utf8 to FStirng
 			FString PayloadString;
 			PayloadString = FString(UTF8_TO_TCHAR(reinterpret_cast<const char*>(PayloadBuffer.GetData())));
 

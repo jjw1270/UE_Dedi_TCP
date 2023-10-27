@@ -4,39 +4,35 @@
 #include "PacketMaker.h"
 #include "terse/utils/Endianness.h"
 
-FBufferArchive PacketMaker::MakePacket(const EPacket& PacketType)
+TArray<uint8_t> PacketMaker::MakePacket(const EPacket& PacketType)
+{
+	// Header      Payload
+	//[][][][] [Variable data]
+	TArray<uint8_t> PacketBuffer = MakeHeader(PacketType, 0);
+
+	return PacketBuffer;
+}
+
+TArray<uint8_t> PacketMaker::MakePacket(const EPacket& PacketType, const FString& Payload)
 {
 	// Header      Payload
 	//[][][][] [Variable data]
 
-	FString Header = MakeHeader(PacketType, 0);
+	//FString to Utf8
+	TArray<uint8_t> PayloadBuffer;
+	//FTCHARToUTF8 MyConverter(*Payload);
+	//PayloadBuffer.Append(reinterpret_cast<const uint8_t*>(MyConverter.Get()), MyConverter.Length());
+	StringToBytes(Payload, (uint8_t*)&PayloadBuffer, Payload.Len());
 
-	// serialize out the header
-	FBufferArchive BufferArchive;
-	BufferArchive << Header;
+	uint16_t PayloadSize = PayloadBuffer.Num();
+	TArray<uint8_t> PacketBuffer = MakeHeader(PacketType, PayloadSize);
 
-	return BufferArchive;
+	PacketBuffer.Append(PayloadBuffer);
+
+	return PacketBuffer;
 }
 
-FBufferArchive PacketMaker::MakePacket(const EPacket& PacketType, const uint8_t* Payload, const uint16_t& PayloadSize)
-{
-	// Header      Payload
-	//[][][][] [Variable data]
-
-	FString Header = MakeHeader(PacketType, PayloadSize);
-
-	// serialize out the header
-	FBufferArchive BufferArchive;
-	BufferArchive << Header;
-
-
-	// Append Payload
-	BufferArchive.Append(Payload, PayloadSize);
-
-	return BufferArchive;
-}
-
-FString PacketMaker::MakeHeader(const EPacket& PacketType, const uint16_t& PayloadSize)
+TArray<uint8_t> PacketMaker::MakeHeader(const EPacket& PacketType, const uint16_t& PayloadSize)
 {
 	// Header
 	//size Type
@@ -45,12 +41,15 @@ FString PacketMaker::MakeHeader(const EPacket& PacketType, const uint16_t& Paylo
 	uint16_t Size = hton(PayloadSize);
 	uint16_t Type = hton(StaticCast<uint16_t>(PacketType));
 
-	FString Header;
+	TArray<uint8_t> Header;
+	Header.AddZeroed(4);
 
-	Header.Append((const TCHAR*)&Size, sizeof(uint16_t));
-	Header.Append((const TCHAR*)&Type, sizeof(uint16_t));
+	memcpy(&Header, &PayloadSize, 2);
+	memcpy(&Header, (uint16_t*)&PacketType, 2);
 
-	UE_LOG(LogTemp, Warning, TEXT("Header Size : %d %d"), Size, Type);
+
+	//memcpy(&Header, &Size, 2);
+	//memcpy(&Header + 2, &Type, 2);
 
 	return Header;
 }

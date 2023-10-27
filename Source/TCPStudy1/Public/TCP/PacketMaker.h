@@ -13,8 +13,12 @@ enum class EPacket
 {
 	None = 0,
 
-	S2C_CastMessage = 1,
-	//	C2S_CastMessage						= 2,  //reserved
+	S2C_Ping = 1,
+	C2S_Ping = 2,
+
+	S2C_CastMessage = 3,
+	//C2S_CastMessage = 4,  //reserved
+
 
 	S2C_Login_UserIDReq = 100,
 	C2S_Login_UserIDAck = 101,
@@ -48,6 +52,7 @@ enum class EPacket
 struct FPacketData
 {
 	FPacketData() : PacketType(EPacket::None), Payload() {}
+	FPacketData(EPacket NewPacketType) : PacketType(NewPacketType), Payload() {}
 	FPacketData(EPacket NewPacketType, FString Payload) : PacketType(NewPacketType), Payload(Payload) {}
 	FPacketData(uint16_t NewPacketTypeInt, FString Payload) : PacketType(static_cast<EPacket>(NewPacketTypeInt)), Payload(Payload) {}
 
@@ -62,11 +67,11 @@ protected:
 
 public:
 	// Use this PacketMaker if does not have payload to send
-	static FBufferArchive MakePacket(const EPacket& PacketType);
+	static TArray<uint8_t> MakePacket(const EPacket& PacketType);
 
 	// Use this PacketMaker if have payload to send
-	static FBufferArchive MakePacket(const EPacket& PacketType, const uint8_t* Payload, const uint16_t& PayloadSize);
+	static TArray<uint8_t> MakePacket(const EPacket& PacketType, const FString& Payload);
 
 protected:
-	static FString MakeHeader(const EPacket& PacketType, const uint16_t& PayloadSize);
+	static TArray<uint8_t> MakeHeader(const EPacket& PacketType, const uint16_t& PayloadSize);
 };
