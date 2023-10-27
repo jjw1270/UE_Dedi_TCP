@@ -10,21 +10,21 @@ void ATCPStudy1GameMode::StartPlay()
 {
 	Super::StartPlay();
 
-	ABLOG(Warning, TEXT("GameInstance Start, Connect to TCP"));
+	//ABLOG(Warning, TEXT("GameInstance Start, Connect to TCP"));
 
-	GI = GetGameInstance<UMyGameInstance>();
-	if (!GI)
-	{
-		ABLOG(Error, TEXT("GI is null"));
-		return;
-	}
+	//GI = GetGameInstance<UMyGameInstance>();
+	//if (!GI)
+	//{
+	//	ABLOG(Error, TEXT("GI is null"));
+	//	return;
+	//}
 
-	GI->InitSocketManager();
+	//GI->InitSocketManager();
 
-	if (!GI->GetSocketManager()->Connect(12330))
-	{
-		return;
-	}
+	//if (!GI->GetSocketManager()->Connect(12330))
+	//{
+	//	return;
+	//}
 
 	//GI->StartRecvThread();
 	//GI->StartSendThread();

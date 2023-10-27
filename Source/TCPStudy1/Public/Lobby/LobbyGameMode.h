@@ -4,20 +4,22 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
-#include "LobbyGameModeBase.generated.h"
+#include "LobbyGameMode.generated.h"
 
 /**
  * 
  */
+DECLARE_DELEGATE_OneParam(FDele_LobbyInfo, const FString&);
+
 UCLASS()
-class TCPSTUDY1_API ALobbyGameModeBase : public AGameModeBase
+class TCPSTUDY1_API ALobbyGameMode : public AGameModeBase
 {
 	GENERATED_BODY()
 	
 protected:
 	virtual void StartPlay() override;
 
-	UPROPERTY()
-	class UMyGameInstance* GI;
+public:
+	FDele_LobbyInfo LobbyInfoDelegate;
 
 };

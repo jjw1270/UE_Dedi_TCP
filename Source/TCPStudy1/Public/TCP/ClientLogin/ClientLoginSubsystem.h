@@ -9,6 +9,7 @@
 /**
  * 
  */
+
 UCLASS()
 class TCPSTUDY1_API UClientLoginSubsystem : public UGameInstanceSubsystem
 {
@@ -17,9 +18,26 @@ class TCPSTUDY1_API UClientLoginSubsystem : public UGameInstanceSubsystem
 public:
 	UClientLoginSubsystem();
 
-	bool Connect(const int32 PortNum);
+protected:
+	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+
+	virtual void Deinitialize() override;
+	
+public:
+	bool Connect(const int32& PortNum, const FString& IP);
+
+	void DestroySocket();
+
+	bool Recv(struct FClientLoginPacketData& OutRecvPacket);
+
+	bool IsConnect();
+
+protected:
+	void PrintSocketError(const FString& Text);
 
 private:
+	int32 HeaderSize{ 4 };
+
 	FSocket* Socket;
 
 };

@@ -19,9 +19,9 @@ protected:
 
 private:
 	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<class UUserWidget> LobbyWidgetClass;
+	TSubclassOf<class ULobbyWidget> LobbyWidgetClass;
 
 	UPROPERTY()
-	class UUserWidget* LobbyWidget;
+	class ULobbyWidget* LobbyWidget;
 
 };

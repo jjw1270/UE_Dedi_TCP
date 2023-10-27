@@ -8,15 +8,15 @@
 
 void UMyGameInstance::Shutdown()
 {
-    SocketManager->DestroySocket();
-    SocketManager.Reset();
+    //SocketManager->DestroySocket();
+    //SocketManager.Reset();
     Super::Shutdown();
 }
 
-void UMyGameInstance::InitSocketManager()
-{
-    SocketManager = MakeShared<FSocketManager>();
-}
+//void UMyGameInstance::InitSocketManager()
+//{
+//    SocketManager = MakeShared<FSocketManager>();
+//}
 
 //FString UMyGameInstance::RecvClientLoginSocket()
 //{

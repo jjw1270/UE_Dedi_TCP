@@ -2,7 +2,7 @@
 
 
 #include "Lobby/LobbyPlayerController.h"
-#include "Blueprint/UserWidget.h"
+#include "Lobby/LobbyWidget.h"
 
 void ALobbyPlayerController::BeginPlay()
 {
@@ -10,13 +10,13 @@ void ALobbyPlayerController::BeginPlay()
 
 	if (LobbyWidgetClass)
 	{
-		LobbyWidget = CreateWidget(this, LobbyWidgetClass);
+		LobbyWidget = CreateWidget<ULobbyWidget>(this, LobbyWidgetClass);
 		if (LobbyWidget)
 		{
 			LobbyWidget->AddToViewport();
+
+			SetInputMode(FInputModeUIOnly());
+			SetShowMouseCursor(true);
 		}
 	}
-
-
-
 }
