@@ -10,7 +10,6 @@
  * 
  */
 
-class UBorder;
 class UButton;
 class UEditableTextBox;
 
@@ -29,9 +28,6 @@ protected:
 	class UTextBlock* TextBlock_Info;
 
 	UPROPERTY(meta = (BindWidget))
-	UBorder* Border_OnConnect;
-
-	UPROPERTY(meta = (BindWidget))
 	UEditableTextBox* EditableTextBox_ID;
 
 	UPROPERTY(meta = (BindWidget))
@@ -48,12 +44,24 @@ protected:
 
 private:
 	UFUNCTION()
-	void OnLobbyInfoDelegate(const FString& InfoMessage);
+	void OnLobbyInfoDelegate(const FString& InfoMessage, bool bSuccess);
 
 	FTimerHandle InfoTextHandle;
 
 	UFUNCTION()
 	void HideInfoText();
 
+	UFUNCTION()
+	void Button_SignIn_Clicked();
+
+	UFUNCTION()
+	void Button_SignUp_Clicked();
+
+	UFUNCTION()
+	void Button_QuitGame_Clicked();
+
+private:
+	UPROPERTY()
+	class UClientLoginSubsystem* ClientLoginSubsystem;
 
 };

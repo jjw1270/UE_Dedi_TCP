@@ -3,7 +3,6 @@
 
 #include "TCP/SendThread.h"
 #include "TCPStudy1.h"
-#include "SocketManager.h"
 
 //FSendThread::FSendThread(TSharedPtr<FSocketManager> SocketManager)
 //{

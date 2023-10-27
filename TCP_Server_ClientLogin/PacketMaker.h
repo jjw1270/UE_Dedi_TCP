@@ -34,7 +34,7 @@ public:
 class PacketMaker
 {
 protected:
-	static const int DefaultBufferSize = 4;
+	static const int HeaderSize = 4;
 
 public:
 	static bool SendPacket(SOCKET* ClientSocket, EPacket PacketToSend);

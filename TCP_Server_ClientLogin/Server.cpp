@@ -297,31 +297,37 @@ unsigned WINAPI ServerThread(void* arg)
 	while (true)
 	{
 		// Recv Header
-		char* HeaderBuffer = new char[HeaderSize];
-		int RecvByte = recv(ClientSocket, HeaderBuffer, HeaderSize, MSG_WAITALL);
+		unsigned short PayloadSize = 0;
+		int RecvByte = recv(ClientSocket, (char*)(&PayloadSize), 2, MSG_WAITALL);
 		if (RecvByte == 0 || RecvByte < 0) //close, Error
 		{
 			RecvError(ClientSocket);
 			break;
 		}
 
-		unsigned short PayloadSize = 0;
 		unsigned short PacketType = 0;
+		RecvByte = recv(ClientSocket, (char*)(&PacketType), 2, MSG_WAITALL);
+		if (RecvByte == 0 || RecvByte < 0) //close, Error
+		{
+			RecvError(ClientSocket);
+			break;
+		}
 
-		memcpy(&PayloadSize, HeaderBuffer, 2);
-		memcpy(&PacketType, HeaderBuffer + 2, 2);
 
-		cout << "[Receive] Payload size : " << PayloadSize << ", Packet type : " << PacketType << endl;
 
+		//memcpy(&PayloadSize, HeaderBuffer, 2);
+		//memcpy(&PacketType, HeaderBuffer + 2, 2);
+
+		/* I Skip Network Byte Ordering because most of game devices use little endian */
 		//PayloadSize = ntohs(PayloadSize);
 		//PacketType = ntohs(PacketType);
 
-		cout << "[Receive(ntohs)] Payload size : " << ntohs(PayloadSize) << ", Receive Packet type : " << ntohs(PacketType) << endl;
+		cout << "[Receive] Payload size : " << PayloadSize << ", Packet type : " << PacketType << endl;
 
 		if (PayloadSize > 0)
 		{
 			//Recv Code, Data
-			char* Payload = new char[PayloadSize];
+			char* Payload = new char[PayloadSize+1];
 
 			RecvByte = recv(ClientSocket, Payload, PayloadSize, MSG_WAITALL);
 			if (RecvByte == 0 || RecvByte < 0)
@@ -330,13 +336,14 @@ unsigned WINAPI ServerThread(void* arg)
 				RecvError(ClientSocket);
 				break;
 			}
+			Payload[PayloadSize] = '\0';
 
 			cout << "Data : " << Payload << endl;
 
 			delete[] Payload;
 		}
 
-		delete[] HeaderBuffer;
+		//delete[] HeaderBuffer;
 	}
 
 	return 0;

@@ -3,7 +3,6 @@
 
 #include "RecvThread.h"
 #include "TCPStudy1.h"
-#include "SocketManager.h"
 
 //FRecvThread::FRecvThread(TSharedPtr<FSocketManager> SocketManager)
 //{

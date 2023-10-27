@@ -14,3 +14,10 @@ DECLARE_LOG_CATEGORY_EXTERN(MyLog, Log, All);
 
 // 정보에 형식 문자열로 추가 정보를 지정해 로그를 남긴다.
 #define ABLOG(Verbosity, Format, ...) UE_LOG(MyLog, Verbosity, TEXT("%s%s"), *ABLOG_CALLINFO, *FString::Printf(Format, ##__VA_ARGS__))
+
+#define CHECK_VALID(Obj) \
+if (!(Obj)) \
+{ \
+    ABLOG(Error, TEXT("NULL = %s : %s"), *GetClass()->GetName(), TEXT(#Obj)); \
+    return; \
+}

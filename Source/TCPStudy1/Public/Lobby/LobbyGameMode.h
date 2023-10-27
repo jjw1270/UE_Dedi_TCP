@@ -9,7 +9,7 @@
 /**
  * 
  */
-DECLARE_DELEGATE_OneParam(FDele_LobbyInfo, const FString&);
+DECLARE_DELEGATE_TwoParams(FDele_LobbyInfo, const FString&, bool);
 
 UCLASS()
 class TCPSTUDY1_API ALobbyGameMode : public AGameModeBase
@@ -21,5 +21,9 @@ protected:
 
 public:
 	FDele_LobbyInfo LobbyInfoDelegate;
+
+protected:
+	UPROPERTY()
+	UGameInstance* GI;
 
 };

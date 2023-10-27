@@ -5,6 +5,8 @@ using namespace std;
 
 bool PacketMaker::SendPacket(SOCKET* ClientSocket, EPacket PacketToSend)
 {
+	cout << "SendPacket" << endl;
+
 	pair<char*, int> BufferData = MakeBuffer(PacketToSend);
 
 	int SendByte = send(*ClientSocket, BufferData.first, BufferData.second, 0);
@@ -76,12 +78,11 @@ void PacketMaker::SendPacketToAllConnectedClients(const map<unsigned short, User
 
 pair<char*, int> PacketMaker::MakeBuffer(EPacket Type)
 {
-	int BufferSize = DefaultBufferSize;
-	char* Buffer = new char[BufferSize];
+	char* Buffer = new char[HeaderSize];
 
 	MakeHeader(Buffer, Type, 0);
 
-	return make_pair(Buffer, BufferSize);
+	return make_pair(Buffer, HeaderSize);
 }
 
 pair<char*, int> PacketMaker::MakeBuffer(EPacket Type, const char* NewData)
@@ -89,13 +90,13 @@ pair<char*, int> PacketMaker::MakeBuffer(EPacket Type, const char* NewData)
 	// Header       Data
 	//[][][][] [Variable data]
 
-	int PacketSize = (int)strlen(NewData);
-	int BufferSize = DefaultBufferSize + PacketSize;
+	const int PayloadSize = (int)strlen(NewData);
+	const int BufferSize = HeaderSize + PayloadSize;
 
 	char* Buffer = new char[BufferSize];
-	MakeHeader(Buffer, Type, PacketSize);
+	MakeHeader(Buffer, Type, PayloadSize);
 
-	memcpy(&Buffer[4], NewData, PacketSize);
+	memcpy(&Buffer[HeaderSize], NewData, PayloadSize);
 
 	return make_pair(Buffer, BufferSize);
 }
@@ -105,10 +106,14 @@ char* PacketMaker::MakeHeader(char* Buffer, EPacket Type, unsigned short Payload
 	// Header
 	//size code
 	//[][] [][]
-	unsigned short size = htons(PayloadSize);
-	unsigned short code = htons(static_cast<unsigned short>(Type));
 
-	memcpy(Buffer, &size, 2);
+	/* I Skip Network Byte Ordering because most of game devices use little endian */
+	//unsigned short size = htons(PayloadSize);
+	//unsigned short code = htons(static_cast<unsigned short>(Type));
+
+	const unsigned short code = static_cast<unsigned short>(Type);
+
+	memcpy(Buffer, &PayloadSize, 2);
 	memcpy(&Buffer[2], &code, 2);
 
 	return Buffer;

@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
-#include "SocketManager.h"
 #include "MyGameInstance.generated.h"
 
 /**
@@ -15,23 +14,4 @@ class TCPSTUDY1_API UMyGameInstance : public UGameInstance
 {
 	GENERATED_BODY()
 
-private:
-	//TSharedPtr<FSocketManager> SocketManager;
-
-	//class FRecvThread* RecvThread;
-	//class FSendThread* SendThread;
-
-protected:
-	virtual void Shutdown() override;
-
-public:
-	//void InitSocketManager();
-
-	//FORCEINLINE TSharedPtr<FSocketManager> GetSocketManager() { return SocketManager; };
-
-	//void StartRecvThread();
-	//void StartSendThread();
-
-	//void SendPacket(const EPacket& PacketType, const FString& Payload);
-	//void SendPacket(const EPacket& PacketType);
 };
