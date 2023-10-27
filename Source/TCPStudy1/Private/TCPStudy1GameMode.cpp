@@ -21,21 +21,15 @@ void ATCPStudy1GameMode::StartPlay()
 
 	GI->InitSocketManager();
 
-	if (!GI->GetSocketManager()->Connect())
+	if (!GI->GetSocketManager()->Connect(12330))
 	{
 		return;
 	}
 
-	GI->StartRecvThread();
-	GI->StartSendThread();
+	//GI->StartRecvThread();
+	//GI->StartSendThread();
 
-	GI->SendPacket(EPacket::C2S_Ping);
-	GI->SendPacket(EPacket::C2S_Chat, TEXT("HIHIHIHIHIHI"));
-
-}
-
-void ATCPStudy1GameMode::Tick(float DeltaSeconds)
-{
-	Super::Tick(DeltaSeconds);
+	//GI->SendPacket(EPacket::C2S_Ping);
+	//GI->SendPacket(EPacket::C2S_Chat, TEXT("HIHIHIHIHIHI"));
 
 }

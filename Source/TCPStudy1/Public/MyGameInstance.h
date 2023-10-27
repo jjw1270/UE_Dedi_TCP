@@ -16,11 +16,10 @@ class TCPSTUDY1_API UMyGameInstance : public UGameInstance
 	GENERATED_BODY()
 
 private:
-	// This is only valid on server.
 	TSharedPtr<FSocketManager> SocketManager;
 
-	class FRecvThread* RecvThread;
-	class FSendThread* SendThread;
+	//class FRecvThread* RecvThread;
+	//class FSendThread* SendThread;
 
 protected:
 	virtual void Shutdown() override;
@@ -28,11 +27,13 @@ protected:
 public:
 	void InitSocketManager();
 
-	TSharedPtr<FSocketManager> GetSocketManager();
+	FORCEINLINE TSharedPtr<FSocketManager> GetSocketManager() { return SocketManager; };
 
-	void StartRecvThread();
-	void StartSendThread();
+	FString RecvClientLoginSocket();
 
-	void SendPacket(const EPacket& PacketType, const FString& Payload);
-	void SendPacket(const EPacket& PacketType);
+	//void StartRecvThread();
+	//void StartSendThread();
+
+	//void SendPacket(const EPacket& PacketType, const FString& Payload);
+	//void SendPacket(const EPacket& PacketType);
 };

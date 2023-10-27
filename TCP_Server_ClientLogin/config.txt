@@ -1,0 +1,3 @@
+Server = tcp://wkddbswp026.iptime.org:43306
+Username = root
+Password = 1233

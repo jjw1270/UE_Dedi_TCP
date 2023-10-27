@@ -12,21 +12,21 @@
 class TCPSTUDY1_API FSendThread : public FRunnable
 {
 public:
-	FSendThread(TSharedPtr<class FSocketManager> SocketManager);
-	~FSendThread();
+	//FSendThread(TSharedPtr<class FSocketManager> SocketManager);
+	//~FSendThread();
 
-	void SetSendPacket(const EPacket& PacketType, const FString& Payload);
-
-protected:
-	bool Init() override;
-	uint32 Run() override;
-	void Exit() override;
-
-private:
-	TSharedPtr<class FSocketManager> SocketManager;
-
-	FRunnableThread* Thread;
-
-	FPacketData SendPacket;
+//	void SetSendPacket(const EPacket& PacketType, const FString& Payload);
+//
+//protected:
+//	bool Init() override;
+//	uint32 Run() override;
+//	void Exit() override;
+//
+//private:
+//	TSharedPtr<class FSocketManager> SocketManager;
+//
+//	FRunnableThread* Thread;
+//
+//	FPacketData SendPacket;
 
 };

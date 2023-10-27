@@ -15,24 +15,24 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Server.cpp">
+    <ClCompile Include="MyUtility.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="PacketMaker.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="MyUtility.cpp">
+    <ClCompile Include="Server.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="MyUtility.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Packet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="PacketMaker.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="MyUtility.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

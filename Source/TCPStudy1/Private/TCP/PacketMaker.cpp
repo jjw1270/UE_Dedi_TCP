@@ -4,7 +4,7 @@
 #include "PacketMaker.h"
 #include "terse/utils/Endianness.h"
 
-TArray<uint8_t> PacketMaker::MakePacket(const EPacket& PacketType)
+TArray<uint8_t> PacketMaker::MakePacket(const EClientLoginPacket& PacketType)
 {
 	// Header      Payload
 	//[][][][] [Variable data]
@@ -13,7 +13,7 @@ TArray<uint8_t> PacketMaker::MakePacket(const EPacket& PacketType)
 	return PacketBuffer;
 }
 
-TArray<uint8_t> PacketMaker::MakePacket(const EPacket& PacketType, const FString& Payload)
+TArray<uint8_t> PacketMaker::MakePacket(const EClientLoginPacket& PacketType, const FString& Payload)
 {
 	// Header      Payload
 	//[][][][] [Variable data]
@@ -32,7 +32,7 @@ TArray<uint8_t> PacketMaker::MakePacket(const EPacket& PacketType, const FString
 	return PacketBuffer;
 }
 
-TArray<uint8_t> PacketMaker::MakeHeader(const EPacket& PacketType, const uint16_t& PayloadSize)
+TArray<uint8_t> PacketMaker::MakeHeader(const EClientLoginPacket& PacketType, const uint16_t& PayloadSize)
 {
 	// Header
 	//size Type

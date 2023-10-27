@@ -13,21 +13,21 @@
 #include "terse/utils/Endianness.h"
 //#include "Serialization/ArrayWriter.h"
 
-bool FSocketManager::Connect()
+bool FSocketManager::Connect(const int32& Port)
 {
-	Socket = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateSocket(NAME_Stream, TEXT("TCPClientSocket"), false);
+	Socket = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateSocket(NAME_Stream, TEXT("TCPClientLoginSocket"), false);
 
-	FString IP = TEXT("127.0.0.1");
+	FString IP = TEXT("127.0.0.1");			//Temp IP
 	FIPv4Address IPv4Address;
 	FIPv4Address::Parse(IP, IPv4Address);
 
 	TSharedPtr<FInternetAddr> SocketAddress = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
-	SocketAddress->SetPort(11233);
+	SocketAddress->SetPort(Port);
 	SocketAddress->SetIp(IPv4Address.Value);
 
 	if (Socket->Connect(*SocketAddress))
 	{
-		ABLOG(Log, TEXT("Connect TCP Success!"));
+		ABLOG(Warning, TEXT("Connect TCP Success!"));
 
 		return true;
 	}
@@ -52,6 +52,7 @@ void FSocketManager::DestroySocket()
 		}
 
 		ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->DestroySocket(Socket);
+		ABLOG(Warning, TEXT("Destroy Socket."));
 	}
 }
 
@@ -63,35 +64,35 @@ void FSocketManager::PrintSocketError(const FString& Text)
 	UE_LOG(LogSockets, Error, TEXT("[%s]  SocketError : %s"), *Text, SocketError);
 }
 
-bool FSocketManager::Send(const FPacketData& ToSendPacket)
-{
-	TArray<uint8_t> SendBuffer;
-	if (ToSendPacket.Payload.IsEmpty())
-	{
-		ABLOG(Warning, TEXT("Payload Empty"));
-		SendBuffer = PacketMaker::MakePacket(ToSendPacket.PacketType);
-	}
-	else
-	{
-		SendBuffer = PacketMaker::MakePacket(ToSendPacket.PacketType, ToSendPacket.Payload);
-	}
+//bool FSocketManager::Send(const FClientLoginPacketData& ToSendPacket)
+//{
+//	TArray<uint8_t> SendBuffer;
+//	if (ToSendPacket.Payload.IsEmpty())
+//	{
+//		ABLOG(Warning, TEXT("Payload Empty"));
+//		SendBuffer = PacketMaker::MakePacket(ToSendPacket.PacketType);
+//	}
+//	else
+//	{
+//		SendBuffer = PacketMaker::MakePacket(ToSendPacket.PacketType, ToSendPacket.Payload);
+//	}
+//
+//	int32 SendBufferSize = SendBuffer.Num();
+//	ABLOG(Warning, TEXT("SendBuffer Size : %d"), SendBufferSize);
+//
+//	int32 BytesSent = 0;
+//	bool bSendBuffer = Socket->Send(SendBuffer.GetData(), SendBufferSize, BytesSent);
+//
+//	if (!bSendBuffer || BytesSent != SendBufferSize)
+//	{
+//		PrintSocketError(TEXT("Send"));
+//		return false;
+//	}
+//	
+//	return true;
+//}
 
-	int32 SendBufferSize = SendBuffer.Num();
-	ABLOG(Warning, TEXT("SendBuffer Size : %d"), SendBufferSize);
-
-	int32 BytesSent = 0;
-	bool bSendBuffer = Socket->Send(SendBuffer.GetData(), SendBufferSize, BytesSent);
-
-	if (!bSendBuffer || BytesSent != SendBufferSize)
-	{
-		PrintSocketError(TEXT("Send"));
-		return false;
-	}
-	
-	return true;
-}
-
-bool FSocketManager::Recv(FPacketData& OutRecvPacket)
+bool FSocketManager::Recv(FClientLoginPacketData& OutRecvPacket)
 {
 	if (!Socket)
 	{
@@ -128,7 +129,7 @@ bool FSocketManager::Recv(FPacketData& OutRecvPacket)
 		RecvPayloadSize = ntoh(RecvPayloadSize);
 		RecvPacketType = ntoh(RecvPacketType);
 
-		OutRecvPacket.PacketType = static_cast<EPacket>(RecvPacketType);
+		OutRecvPacket.PacketType = static_cast<EClientLoginPacket>(RecvPacketType);
 
 		// Recv Payload
 		if (RecvPayloadSize > 0)

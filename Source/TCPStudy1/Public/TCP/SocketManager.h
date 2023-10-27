@@ -17,11 +17,11 @@ private:
 	int32 HeaderSize{ 4 };
 
 public:
-	bool Connect();
+	bool Connect(const int32& Port);
 
-	bool Recv(FPacketData& OutRecvPacket);
+	bool Recv(FClientLoginPacketData& OutRecvPacket);
 
-	bool Send(const FPacketData& ToSendPacket);
+	bool Send(const FClientLoginPacketData& ToSendPacket);
 
 	void DestroySocket();
 

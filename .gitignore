@@ -75,6 +75,9 @@ DerivedDataCache/*
 
 Package/*
 
-TCPServer/config.txt
-TCPServer/x64/*
-TCPServer/mysqlConnector/*
+TCP_Server_DediServer/config.txt
+TCP_Server_DediServer/x64/*
+TCP_Server_DediServer/mysqlConnector/*
+
+TCP_Server_ClientLogin/x64/*
+TCP_Server_ClientLogin/mysqlConnector/*

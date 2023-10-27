@@ -9,54 +9,42 @@
  * 
  */
 UENUM()
-enum class EPacket
+enum class EClientLoginPacket
 {
-	None = 0,
+	None														= 0,
 
-	S2C_Ping = 1,
-	C2S_Ping = 2,
+	S2C_Ping													= 1,
+	C2S_Ping													= 2,
 
-	S2C_CastMessage = 3,
-	//C2S_CastMessage = 4,  //reserved
+	S2C_CastMessage												= 3,
+	//C2S_CastMessage											= 4,  //reserved
 
+	S2C_ConnectSuccess											= 100,
 
-	S2C_Login_UserIDReq = 100,
-	C2S_Login_UserIDAck = 101,
+	C2S_ReqSignIn												= 1000,
+	S2C_ResSignIn_Success										= 1001,
+	S2C_ResSignIn_Fail_InValidID								= 1002,
+	S2C_ResSignIn_Fail_AlreadySignIn							= 1003,
 
-	S2C_Login_UserIDFailureReq = 102,
-	C2S_Login_UserIDReq = 103,
-	C2S_Login_MakeNewUserReq = 110,
+	C2S_ReqSignUpIDPwd											= 1010,
+	S2C_ResSignUpIDPwd_Success									= 1011,
+	S2C_ResSignUpIDPwd_Fail_ExistID								= 1012,
 
-	S2C_Login_NewUserNickNameReq = 111,
-	C2S_Login_NewUserNickNameAck = 112,
-
-	S2C_Login_NewUserPwdReq = 113,
-	C2S_Login_NewUserPwdAck = 114,
-
-	S2C_Login_UserPwdReq = 120,
-	C2S_Login_UserPwdAck = 121,
-
-	S2C_Login_UserPwdFailureReq = 122,
-	C2S_Login_UserPwdReq = 123,
-
-	S2C_LoginSuccess = 150,
-	S2C_AlreadyLoginOnServer = 151,
-
-	S2C_CanChat = 200,
-	C2S_Chat = 201,
-	S2C_Chat = 202,
+	C2S_ReqSignUpNickName										= 1020,
+	S2C_ResSignUpNickName_Success								= 1021,
+	S2C_ResSignUpNickName_Fail_ExistNickName					= 1022,
 
 	Max,
 };
 
-struct FPacketData
+struct FClientLoginPacketData
 {
-	FPacketData() : PacketType(EPacket::None), Payload() {}
-	FPacketData(EPacket NewPacketType) : PacketType(NewPacketType), Payload() {}
-	FPacketData(EPacket NewPacketType, FString Payload) : PacketType(NewPacketType), Payload(Payload) {}
-	FPacketData(uint16_t NewPacketTypeInt, FString Payload) : PacketType(static_cast<EPacket>(NewPacketTypeInt)), Payload(Payload) {}
+	FClientLoginPacketData() : PacketType(EClientLoginPacket::None), Payload() {}
+	FClientLoginPacketData(EClientLoginPacket NewPacketType) : PacketType(NewPacketType), Payload() {}
+	FClientLoginPacketData(EClientLoginPacket NewPacketType, FString Payload) : PacketType(NewPacketType), Payload(Payload) {}
+	FClientLoginPacketData(uint16_t NewPacketTypeInt, FString Payload) : PacketType(static_cast<EClientLoginPacket>(NewPacketTypeInt)), Payload(Payload) {}
 
-	EPacket PacketType;
+	EClientLoginPacket PacketType;
 	FString Payload;
 };
 
@@ -67,11 +55,11 @@ protected:
 
 public:
 	// Use this PacketMaker if does not have payload to send
-	static TArray<uint8_t> MakePacket(const EPacket& PacketType);
+	static TArray<uint8_t> MakePacket(const EClientLoginPacket& PacketType);
 
 	// Use this PacketMaker if have payload to send
-	static TArray<uint8_t> MakePacket(const EPacket& PacketType, const FString& Payload);
+	static TArray<uint8_t> MakePacket(const EClientLoginPacket& PacketType, const FString& Payload);
 
 protected:
-	static TArray<uint8_t> MakeHeader(const EPacket& PacketType, const uint16_t& PayloadSize);
+	static TArray<uint8_t> MakeHeader(const EClientLoginPacket& PacketType, const uint16_t& PayloadSize);
 };
