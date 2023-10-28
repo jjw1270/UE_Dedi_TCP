@@ -94,5 +94,12 @@ void ULobbyWidget::Button_SignUp_Clicked()
 
 void ULobbyWidget::Button_QuitGame_Clicked()
 {
+	CHECK_VALID(ClientLoginSubsystem);
 
+	FLoginPacketData PacketData(ELoginPacket::C2S_ReqSignIn, TEXT("안녕하세요!"));
+	bool bSend = ClientLoginSubsystem->Send(PacketData);
+	if (!bSend)
+	{
+		ABLOG(Error, TEXT("Send Error"));
+	}
 }

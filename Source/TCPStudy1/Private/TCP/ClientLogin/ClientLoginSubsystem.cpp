@@ -186,19 +186,21 @@ bool UClientLoginSubsystem::Send(const FLoginPacketData& SendPacket)
 
 	if (PayloadSize > 0)
 	{
-		uint8_t* PayloadBuffer = new uint8_t[PayloadSize];
+		//uint8_t* PayloadBuffer = new uint8_t[PayloadSize];
 
-		StringToBytes(SendPacket.Payload, PayloadBuffer, PayloadSize);
+		uint8_t* PayloadBuffer = reinterpret_cast<uint8_t*>(TCHAR_TO_UTF8(SendPacket.Payload.GetCharArray().GetData()));
+
+		//StringToBytes(SendPacket.Payload, PayloadBuffer, PayloadSize);
 
 		BytesSent = 0;
 		bSendBuffer = Socket->Send(PayloadBuffer, PayloadSize, BytesSent);
+		//delete[] PayloadBuffer;
+
 		if (!bSendBuffer)
 		{
 			PrintSocketError(TEXT("Send"));
 			return false;
 		}
-
-		delete[] PayloadBuffer;
 	}
 
 	return true;
