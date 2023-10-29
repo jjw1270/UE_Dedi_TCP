@@ -72,7 +72,6 @@ public:
 
 	bool Recv(struct FLoginPacketData& OutRecvPacket);
 
-
 	bool Send(const struct FLoginPacketData& SendPacket);
 
 	bool IsConnect();

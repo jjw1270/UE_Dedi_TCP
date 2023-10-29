@@ -88,7 +88,6 @@ void UClientLoginSubsystem::PrintSocketError(const FString& Text)
 	UE_LOG(LogSockets, Error, TEXT("[%s]  SocketError : %s"), *Text, SocketError);
 }
 
-
 bool UClientLoginSubsystem::Recv(FLoginPacketData& OutRecvPacket)
 {
 	if (!Socket)
@@ -156,51 +155,6 @@ bool UClientLoginSubsystem::Recv(FLoginPacketData& OutRecvPacket)
 	}
 }
 
-//bool UClientLoginSubsystem::Send(const FLoginPacketData& SendPacket)
-//{
-//	if (!Socket)
-//	{
-//		ABLOG(Error, TEXT("Socket is null"));
-//		return false;
-//	}
-//
-//	// Send Header
-//	uint16_t PayloadSize = SendPacket.Payload.Len();
-//	ABLOG(Warning, TEXT("Payload Size : %d"), (int32)PayloadSize);
-//
-//	const uint16_t Type = StaticCast<uint16_t>(SendPacket.PacketType);
-//
-//	uint8_t HeaderBuffer[HeaderSize] = { 0, };
-//
-//	FMemory::Memcpy(&HeaderBuffer, &PayloadSize, 2);
-//	FMemory::Memcpy(&HeaderBuffer[2], &Type, 2);
-//
-//	int32 BytesSent = 0;
-//	bool bSendBuffer = Socket->Send(HeaderBuffer, HeaderSize, BytesSent);
-//	if (!bSendBuffer)
-//	{
-//		PrintSocketError(TEXT("Send"));
-//		return false;
-//	}
-//	
-//	ABLOG(Warning, TEXT("Send Header Success"));
-//
-//	if (PayloadSize > 0)
-//	{
-//		uint8_t* PayloadBuffer = reinterpret_cast<uint8_t*>(TCHAR_TO_UTF8(SendPacket.Payload.GetCharArray().GetData()));
-//
-//		BytesSent = 0;
-//		bSendBuffer = Socket->Send(PayloadBuffer, PayloadSize, BytesSent);
-//		if (!bSendBuffer)
-//		{
-//			PrintSocketError(TEXT("Send"));
-//			return false;
-//		}
-//	}
-//
-//	return true;
-//}
-
 bool UClientLoginSubsystem::Send(const FLoginPacketData& SendPacket)
 {
 	if (!Socket)
@@ -209,29 +163,14 @@ bool UClientLoginSubsystem::Send(const FLoginPacketData& SendPacket)
 		return false;
 	}
 
+	char* PayloadBuffer = nullptr;
 	uint16_t PayloadSize = 0;
-	uint8_t* PayloadBuffer = nullptr;
 
 	if (!SendPacket.Payload.IsEmpty())
 	{
-		const wchar_t* WideChars = *SendPacket.Payload;
-
-		int32 LenW = wcslen(WideChars);
-		PayloadSize = LenW * 2;
-
-		char* buf = new char[PayloadSize];
-		FMemory::Memcpy(buf, WideChars, PayloadSize);
-
-		PayloadBuffer = reinterpret_cast<uint8_t*>(buf);
-
-		//const TCHAR* A = SendPacket.Payload.GetCharArray().GetData();
-
-
-		//PayloadBuffer = reinterpret_cast<uint8_t*>(TCHAR_TO_UTF8(TCHARa));
-	}
-	else
-	{
-		PayloadSize = 0;
+		// FString to UTF8 const char* type buffer
+		PayloadBuffer = TCHAR_TO_UTF8(*SendPacket.Payload);
+		PayloadSize = strlen(PayloadBuffer);
 	}
 
 	// Send Header
@@ -257,7 +196,7 @@ bool UClientLoginSubsystem::Send(const FLoginPacketData& SendPacket)
 	if (PayloadBuffer != nullptr)
 	{
 		BytesSent = 0;
-		bSendBuffer = Socket->Send(PayloadBuffer, PayloadSize, BytesSent);
+		bSendBuffer = Socket->Send(reinterpret_cast<uint8_t*>(PayloadBuffer), PayloadSize, BytesSent);
 		if (!bSendBuffer)
 		{
 			PrintSocketError(TEXT("Send"));

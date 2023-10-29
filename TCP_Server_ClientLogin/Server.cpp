@@ -338,16 +338,9 @@ unsigned WINAPI ServerThread(void* arg)
 				break;
 			}
 
-			wchar_t* Data = nullptr;
-			int chrSize = MultiByteToWideChar(CP_ACP, 0, Payload, -1, NULL, NULL);
-			Data = new WCHAR[chrSize];
-			MultiByteToWideChar(CP_ACP, 0, Payload, strlen(Payload), Data, chrSize);
-			//Payload[PayloadSize] = '\0';
-
-			cout << "Data : " << *Data << endl;
+			cout << "Data : " << Payload << endl;
 
 			delete[] Payload;
-			delete[] Data;
 		}
 
 
