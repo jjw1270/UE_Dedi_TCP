@@ -327,8 +327,9 @@ unsigned WINAPI ServerThread(void* arg)
 		if (PayloadSize > 0)
 		{
 			//Recv Code, Data
-			char* Payload = new char[PayloadSize+1];
+			char* Payload = new char[PayloadSize];
 
+			// Payload recv is wchar
 			RecvByte = recv(ClientSocket, Payload, PayloadSize, MSG_WAITALL);
 			if (RecvByte == 0 || RecvByte < 0)
 			{
@@ -336,12 +337,38 @@ unsigned WINAPI ServerThread(void* arg)
 				RecvError(ClientSocket);
 				break;
 			}
-			Payload[PayloadSize] = '\0';
 
-			cout << "Data : " << Payload << endl;
+			wchar_t* Data = nullptr;
+			int chrSize = MultiByteToWideChar(CP_ACP, 0, Payload, -1, NULL, NULL);
+			Data = new WCHAR[chrSize];
+			MultiByteToWideChar(CP_ACP, 0, Payload, strlen(Payload), Data, chrSize);
+			//Payload[PayloadSize] = '\0';
+
+			cout << "Data : " << *Data << endl;
 
 			delete[] Payload;
+			delete[] Data;
 		}
+
+
+		//if (PayloadSize > 0)
+		//{
+		//	//Recv Code, Data
+		//	char* Payload = new char[PayloadSize+1];
+
+		//	RecvByte = recv(ClientSocket, Payload, PayloadSize, MSG_WAITALL);
+		//	if (RecvByte == 0 || RecvByte < 0)
+		//	{
+		//		//close, recv Error
+		//		RecvError(ClientSocket);
+		//		break;
+		//	}
+		//	Payload[PayloadSize] = '\0';
+
+		//	cout << "Data : " << Payload << endl;
+
+		//	delete[] Payload;
+		//}
 
 		//delete[] HeaderBuffer;
 	}

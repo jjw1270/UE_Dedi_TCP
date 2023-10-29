@@ -88,6 +88,7 @@ void UClientLoginSubsystem::PrintSocketError(const FString& Text)
 	UE_LOG(LogSockets, Error, TEXT("[%s]  SocketError : %s"), *Text, SocketError);
 }
 
+
 bool UClientLoginSubsystem::Recv(FLoginPacketData& OutRecvPacket)
 {
 	if (!Socket)
@@ -155,6 +156,51 @@ bool UClientLoginSubsystem::Recv(FLoginPacketData& OutRecvPacket)
 	}
 }
 
+//bool UClientLoginSubsystem::Send(const FLoginPacketData& SendPacket)
+//{
+//	if (!Socket)
+//	{
+//		ABLOG(Error, TEXT("Socket is null"));
+//		return false;
+//	}
+//
+//	// Send Header
+//	uint16_t PayloadSize = SendPacket.Payload.Len();
+//	ABLOG(Warning, TEXT("Payload Size : %d"), (int32)PayloadSize);
+//
+//	const uint16_t Type = StaticCast<uint16_t>(SendPacket.PacketType);
+//
+//	uint8_t HeaderBuffer[HeaderSize] = { 0, };
+//
+//	FMemory::Memcpy(&HeaderBuffer, &PayloadSize, 2);
+//	FMemory::Memcpy(&HeaderBuffer[2], &Type, 2);
+//
+//	int32 BytesSent = 0;
+//	bool bSendBuffer = Socket->Send(HeaderBuffer, HeaderSize, BytesSent);
+//	if (!bSendBuffer)
+//	{
+//		PrintSocketError(TEXT("Send"));
+//		return false;
+//	}
+//	
+//	ABLOG(Warning, TEXT("Send Header Success"));
+//
+//	if (PayloadSize > 0)
+//	{
+//		uint8_t* PayloadBuffer = reinterpret_cast<uint8_t*>(TCHAR_TO_UTF8(SendPacket.Payload.GetCharArray().GetData()));
+//
+//		BytesSent = 0;
+//		bSendBuffer = Socket->Send(PayloadBuffer, PayloadSize, BytesSent);
+//		if (!bSendBuffer)
+//		{
+//			PrintSocketError(TEXT("Send"));
+//			return false;
+//		}
+//	}
+//
+//	return true;
+//}
+
 bool UClientLoginSubsystem::Send(const FLoginPacketData& SendPacket)
 {
 	if (!Socket)
@@ -163,8 +209,32 @@ bool UClientLoginSubsystem::Send(const FLoginPacketData& SendPacket)
 		return false;
 	}
 
+	uint16_t PayloadSize = 0;
+	uint8_t* PayloadBuffer = nullptr;
+
+	if (!SendPacket.Payload.IsEmpty())
+	{
+		const wchar_t* WideChars = *SendPacket.Payload;
+
+		int32 LenW = wcslen(WideChars);
+		PayloadSize = LenW * 2;
+
+		char* buf = new char[PayloadSize];
+		FMemory::Memcpy(buf, WideChars, PayloadSize);
+
+		PayloadBuffer = reinterpret_cast<uint8_t*>(buf);
+
+		//const TCHAR* A = SendPacket.Payload.GetCharArray().GetData();
+
+
+		//PayloadBuffer = reinterpret_cast<uint8_t*>(TCHAR_TO_UTF8(TCHARa));
+	}
+	else
+	{
+		PayloadSize = 0;
+	}
+
 	// Send Header
-	uint16_t PayloadSize = SendPacket.Payload.Len();
 	ABLOG(Warning, TEXT("Payload Size : %d"), (int32)PayloadSize);
 
 	const uint16_t Type = StaticCast<uint16_t>(SendPacket.PacketType);
@@ -181,56 +251,25 @@ bool UClientLoginSubsystem::Send(const FLoginPacketData& SendPacket)
 		PrintSocketError(TEXT("Send"));
 		return false;
 	}
-	
+
 	ABLOG(Warning, TEXT("Send Header Success"));
 
-	if (PayloadSize > 0)
+	if (PayloadBuffer != nullptr)
 	{
-		//uint8_t* PayloadBuffer = new uint8_t[PayloadSize];
-
-		uint8_t* PayloadBuffer = reinterpret_cast<uint8_t*>(TCHAR_TO_UTF8(SendPacket.Payload.GetCharArray().GetData()));
-
-		//StringToBytes(SendPacket.Payload, PayloadBuffer, PayloadSize);
-
 		BytesSent = 0;
 		bSendBuffer = Socket->Send(PayloadBuffer, PayloadSize, BytesSent);
-		//delete[] PayloadBuffer;
-
 		if (!bSendBuffer)
 		{
 			PrintSocketError(TEXT("Send"));
 			return false;
 		}
+
+		ABLOG(Warning, TEXT("Send Payload Success"));
 	}
 
 	return true;
-
-
-	//const int32 PacketSize = HeaderSize + SendPacket.Payload.Len();
-
-	//uint8_t* SendBuffer = new uint8_t[PacketSize];
-
-	//uint8_t* Packet = PacketMaker::MakeHeader(SendPacket.PacketType, SendPacket.Payload.Len());
-
-	////FMemory::Memcpy(&SendBuffer, (const void*)&Packet, PacketSize);
-
-	////TArray<uint8_t> SendBuffer = SendPacket.Payload.IsEmpty() ? PacketMaker::MakePacket(SendPacket.PacketType)
-	////	: PacketMaker::MakePacket(SendPacket.PacketType, SendPacket.Payload);
-
-	////int32 SendBufferSize = SendBuffer.Num();
-	////ABLOG(Warning, TEXT("SendBuffer Size : %d"), SendBufferSize);
-
-	//int32 BytesSent = 0;
-	//bool bSendBuffer = Socket->Send(Packet, SendPacket.Payload.Len() + 4, BytesSent);
-	//if (!bSendBuffer || BytesSent != SendPacket.Payload.Len() + 4)
-	//{
-	//	PrintSocketError(TEXT("Send"));
-	//	return false;
-	//}
-	//
-	//ABLOG(Warning, TEXT("Send Success"));
-	//return true;
 }
+
 
 bool UClientLoginSubsystem::IsConnect()
 {
@@ -241,54 +280,3 @@ bool UClientLoginSubsystem::IsConnect()
 
 	return false;
 }
-
-//TArray<uint8_t> PacketMaker::MakePacket(const ELoginPacket& PacketType)
-//{
-//	// Header
-//	//[][][][]
-//
-//	return MakeHeader(PacketType, 0);
-//}
-//
-//TArray<uint8_t> PacketMaker::MakePacket(const ELoginPacket& PacketType, const FString& Payload)
-//{
-//	// Header      Payload
-//	//[][][][] [Variable data]
-//
-//	//FString to Utf8
-//	TArray<uint8_t> PayloadBuffer;
-//	//FTCHARToUTF8 MyConverter(*Payload);
-//	//PayloadBuffer.Append(reinterpret_cast<const uint8_t*>(MyConverter.Get()), MyConverter.Length());
-//	StringToBytes(Payload, (uint8_t*)&PayloadBuffer, Payload.Len());
-//
-//	uint16_t PayloadSize = PayloadBuffer.Num();
-//	TArray<uint8_t> PacketBuffer = MakeHeader(PacketType, PayloadSize);
-//
-//	PacketBuffer.Append(PayloadBuffer);
-//
-//	return PacketBuffer;
-//}
-
-//uint8_t* PacketMaker::MakeHeader(const ELoginPacket& PacketType, const uint16_t PayloadSize)
-//{
-//	//size Type
-//	//[][] [][]
-//
-//	/* I Skip Network Byte Ordering because most of game devices use little endian */
-//	//uint16_t Size = hton(PayloadSize);
-//	//uint16_t Type = hton(StaticCast<uint16_t>(PacketType));
-//
-//	const uint16_t Type = StaticCast<uint16_t>(PacketType);
-//
-//	ABLOG(Warning, TEXT("MakeHeader Type : %d"), (int32)Type);
-//	ABLOG(Warning, TEXT("MakeHeader Size : %d"), (int32)PayloadSize);
-//
-//	uint8_t Header[HeaderSize] = { 0, };
-//
-//	FMemory::Memcpy(&Header, (const void*)&PayloadSize, 2);
-//	FMemory::Memcpy(&Header[2], (const void*)&Type, 2);
-//
-//	uint8_t* a = (uint8_t*)&Header;
-//
-//	return a;
-//}
