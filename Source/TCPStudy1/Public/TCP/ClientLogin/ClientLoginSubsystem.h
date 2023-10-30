@@ -18,7 +18,7 @@ enum class ELoginPacket
 	C2S_Ping												= 2,
 
 	S2C_CastMessage											= 3,
-	//C2S_CastMessage										= 4,  //reserved
+	//C2S_CastMessage										= 4,	//reserved
 
 	S2C_ConnectSuccess										= 100,
 

@@ -17,12 +17,12 @@ UClientLoginSubsystem::UClientLoginSubsystem()
 
 void UClientLoginSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
-	ABLOG(Error, TEXT("Initialize ClientLoginSubsystem"));
+	ABLOG(Warning, TEXT("Initialize ClientLoginSubsystem"));
 }
 
 void UClientLoginSubsystem::Deinitialize()
 {
-	ABLOG(Error, TEXT("Deinitialize ClientLoginSubsystem"));
+	ABLOG(Warning, TEXT("Deinitialize ClientLoginSubsystem"));
 
 	if (IsConnect())
 	{
@@ -178,20 +178,21 @@ bool UClientLoginSubsystem::Send(const FLoginPacketData& SendPacket)
 		return false;
 	}
 
-	char* PayloadBuffer = nullptr;
+	uint8_t* PayloadBuffer = nullptr;
 	uint16_t PayloadSize = 0;
 
 	if (!SendPacket.Payload.IsEmpty())
 	{
 		// FString to UTF8 const char* type buffer
-		PayloadBuffer = TCHAR_TO_UTF8(*SendPacket.Payload);
-		PayloadSize = strlen(PayloadBuffer);
+		ANSICHAR* PayloadCharBuf = TCHAR_TO_UTF8(*SendPacket.Payload);
+		PayloadSize = strlen(PayloadCharBuf);
+		PayloadBuffer = reinterpret_cast<uint8_t*>(PayloadCharBuf);
 	}
 
 	// Send Header
 	ABLOG(Warning, TEXT("Payload Size : %d"), (int32)PayloadSize);
 
-	const uint16_t Type = StaticCast<uint16_t>(SendPacket.PacketType);
+	const uint16_t Type = static_cast<uint16_t>(SendPacket.PacketType);
 
 	uint8_t HeaderBuffer[HeaderSize] = { 0, };
 
@@ -206,19 +207,15 @@ bool UClientLoginSubsystem::Send(const FLoginPacketData& SendPacket)
 		return false;
 	}
 
-	ABLOG(Warning, TEXT("Send Header Success"));
-
 	if (PayloadBuffer != nullptr)
 	{
 		BytesSent = 0;
-		bSendBuffer = Socket->Send(reinterpret_cast<uint8_t*>(PayloadBuffer), PayloadSize, BytesSent);
+		bSendBuffer = Socket->Send(PayloadBuffer, PayloadSize, BytesSent);
 		if (!bSendBuffer)
 		{
 			PrintSocketError(TEXT("Send"));
 			return false;
 		}
-
-		ABLOG(Warning, TEXT("Send Payload Success"));
 	}
 
 	return true;

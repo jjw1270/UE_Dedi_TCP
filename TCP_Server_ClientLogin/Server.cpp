@@ -29,6 +29,18 @@ fd_set Reads;
 fd_set CopyReads;
 
 // Used for User Sign Up
+struct UserData
+{
+public:
+	UserData() {}
+	UserData(const string& NewUserID, const string& NewPassword)
+		: UserID(NewUserID), Password(NewPassword)
+	{
+	}
+
+	string UserID;
+	string Password;
+};
 map<unsigned short, UserData> TempUserList;
 
 bool GetConfigFromFile(string& OutServer, string& OutUserName, string& OutPassword)
@@ -257,7 +269,7 @@ unsigned WINAPI ServerThread(void* arg)
 		//PayloadSize = ntohs(PayloadSize);
 		//PacketType = ntohs(PacketType);
 
-		cout << "[Receive] Payload size : " << PayloadSize << ", Packet type : " << PacketType << endl;
+		printf("[Receive] Payload size : %d, Packet type : %d\n", PayloadSize, PacketType);
 
 		char* Payload = nullptr;
 
@@ -279,6 +291,7 @@ unsigned WINAPI ServerThread(void* arg)
 		ProcessPacket(ClientSocket, UserNumber, static_cast<EPacket>(PacketType), Payload);
 
 		delete[] Payload;
+		Payload = nullptr;
 	}
 
 	return 0;
@@ -338,12 +351,10 @@ void ProcessPacket(SOCKET& ClientSocket, const unsigned short& UserNumber, const
 	{
 	case EPacket::C2S_ReqSignIn:
 	{
-		cout << "C2S_ReqSignIn" << endl;
-
 		char* ColonPtr = strchr(Payload, ':');
 		if (ColonPtr != nullptr)
 		{
-			int IDLen = ColonPtr - Payload;
+			long long IDLen = ColonPtr - Payload;
 
 			string UserID(Payload, IDLen);
 			string UserPwd(ColonPtr + 1);
@@ -400,6 +411,93 @@ void ProcessPacket(SOCKET& ClientSocket, const unsigned short& UserNumber, const
 		}
 	}
 		break;
+	case EPacket::C2S_ReqSignUpIDPwd:
+	{
+		char* ColonPtr = strchr(Payload, ':');
+		if (ColonPtr != nullptr)
+		{
+			long long IDLen = ColonPtr - Payload;
+
+			string NewUserID(Payload, IDLen);
+			string NewUserPwd(ColonPtr + 1);
+
+			cout << "New ID : " << NewUserID << " New Pwd : " << NewUserPwd << endl;
+
+			// Check ID Exist in DB UserConfig
+			string SqlQuery = "SELECT * FROM userconfig WHERE ID = ?";
+			Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
+			Sql_PreStatement->setString(1, NewUserID);
+			Sql_Result = Sql_PreStatement->executeQuery();
+
+			if (Sql_Result->rowsCount() > 0)
+			{
+				// If ID is exist, error
+				bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignUpIDPwd_Fail_ExistID);
+				if (!bSendSuccess)
+				{
+					SendError(ClientSocket);
+					break;
+				}
+			}
+			else
+			{
+				//cout << "Make new Temp User" << endl;
+				UserData NewTempUser(NewUserID, NewUserPwd);
+				TempUserList.emplace(UserNumber, NewTempUser);
+
+				bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignUpIDPwd_Success);
+				if (!bSendSuccess)
+				{
+					SendError(ClientSocket);
+					break;
+				}
+			}
+		}
+	}
+	break;
+	case EPacket::C2S_ReqSignUpNickName:
+	{
+		string NewNickName(Payload);
+
+		cout << "New Nick Name : " << NewNickName << endl;
+
+		// Check ID Exist in DB UserConfig
+		string SqlQuery = "SELECT * FROM userconfig WHERE NickName = ?";
+		Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
+		Sql_PreStatement->setString(1, MyUtility::MultibyteToUtf8(NewNickName));
+		Sql_Result = Sql_PreStatement->executeQuery();
+
+		if (Sql_Result->rowsCount() > 0)
+		{
+			// If NickName is exist, error
+			bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignUpNickName_Fail_ExistNickName);
+			if (!bSendSuccess)
+			{
+				SendError(ClientSocket);
+				break;
+			}
+		}
+		else
+		{
+			// Create New Userconfig
+			SqlQuery = "INSERT INTO userconfig(ID, Password, NickName) VALUES(?,?,?)";
+			Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
+			Sql_PreStatement->setString(1, TempUserList[UserNumber].UserID);
+			Sql_PreStatement->setString(2, TempUserList[UserNumber].Password);
+			Sql_PreStatement->setString(3, MyUtility::MultibyteToUtf8(NewNickName));
+			Sql_PreStatement->execute();
+
+			TempUserList.erase(UserNumber);
+
+			bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignUpNickName_Success);
+			if (!bSendSuccess)
+			{
+				SendError(ClientSocket);
+				break;
+			}
+		}
+	}
+	break;
 	default:
 		break;
 	}

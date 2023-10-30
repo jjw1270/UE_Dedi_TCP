@@ -10,7 +10,7 @@
 /**
  *
  */
-DECLARE_DELEGATE_TwoParams(FDele_LobbyInfo, const FString&, bool);
+DECLARE_DELEGATE_ThreeParams(FDele_LobbyInfo, const FString&, const int32&, bool);
 
 UCLASS()
 class TCPSTUDY1_API ALobbyGameMode : public AGameModeBase
@@ -19,8 +19,6 @@ class TCPSTUDY1_API ALobbyGameMode : public AGameModeBase
 
 protected:
 	virtual void StartPlay() override;
-
-	virtual void PostLogin(APlayerController* NewPlayer) override;
 
 	virtual void Logout(AController* Exiting) override;
 
@@ -41,6 +39,8 @@ protected:
 
 	class FClientLoginThread* ClientLoginThread;
 	class FRunnableThread* ClientLoginThreadHandle;
+
+	FTimerHandle ProcessPacketHandle;
 
 	FLoginPacketData PacketToProcess;
 };

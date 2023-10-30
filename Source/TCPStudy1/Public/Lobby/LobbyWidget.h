@@ -42,15 +42,43 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	UButton* Button_QuitGame;
 
+	UPROPERTY(meta = (BindWidget))
+	class UBorder* Border_SignUp;
+
+	UPROPERTY(meta = (BindWidget))
+	UEditableTextBox* EditableTextBox_NewID;
+
+	UPROPERTY(meta = (BindWidget))
+	UEditableTextBox* EditableTextBox_NewPassword;
+
+	UPROPERTY(meta = (BindWidget))
+	UButton* Button_Check;
+
+	UPROPERTY(meta = (BindWidget))
+	UButton* Button_CancelSignUp;
+
+	UPROPERTY(meta = (BindWidget))
+	class UBorder* Border_SignUp_NickName;
+
+	UPROPERTY(meta = (BindWidget))
+	UEditableTextBox* EditableTextBox_NewNickName;
+
+	UPROPERTY(meta = (BindWidget))
+	UButton* Button_CheckNickName;
+
+	UPROPERTY(meta = (BindWidget))
+	UButton* Button_CancelSignUpNickName;
+
 private:
 	UFUNCTION()
-	void OnLobbyInfoDelegate(const FString& InfoMessage, bool bSuccess);
+	void OnLobbyInfoDelegate(const FString& InfoMessage, const int32& PacketCode, bool bSuccess);
 
 	FTimerHandle InfoTextHandle;
 
-	UFUNCTION()
-	void HideInfoText();
+	void EnableInputs(bool bEnable);
 
+// Button Events
+private:
 	UFUNCTION()
 	void Button_SignIn_Clicked();
 
@@ -59,6 +87,18 @@ private:
 
 	UFUNCTION()
 	void Button_QuitGame_Clicked();
+
+	UFUNCTION()
+	void Button_Check_Clicked();
+
+	UFUNCTION()
+	void Button_CancelSignUp_Clicked();
+
+	UFUNCTION()
+	void Button_CheckNickName_Clicked();
+
+	UFUNCTION()
+	void Button_CancelSignUpNickName_Clicked();
 
 private:
 	UPROPERTY()

@@ -5,7 +5,7 @@
 #include "TCPStudy1.h"
 #include "ClientLogin/ClientLoginSubsystem.h"
 
-FClientLoginThread::FClientLoginThread(UClientLoginSubsystem*& NewClientLoginSubsystem)
+FClientLoginThread::FClientLoginThread(UClientLoginSubsystem* NewClientLoginSubsystem)
 	: ClientLoginSubsystem(NewClientLoginSubsystem)
 {
 	bStopThread = false;
@@ -25,7 +25,6 @@ uint32 FClientLoginThread::Run()
 
 		if (PacketData.PacketType != ELoginPacket::None)
 		{
-			ABLOG_S(Warning);
 			ClientLoginSubsystem->ProcessPacket(PacketData);
 		}
     }

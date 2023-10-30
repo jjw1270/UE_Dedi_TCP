@@ -33,48 +33,48 @@ bool PacketMaker::SendPacket(SOCKET* ClientSocket, EPacket PacketToSend, const c
 	return true;
 }
 
-void PacketMaker::SendPacketToAllConnectedClients(const map<unsigned short, UserData>& UserList, EPacket PacketToSend, const char* MessageToSend)
-{
-	pair<char*, int> BufferData = MakeBuffer(PacketToSend, MessageToSend);
-
-	for (const auto& UserPair : UserList)
-	{
-		if (UserPair.second.UserSocket == INVALID_SOCKET)
-		{
-			continue;
-		}
-
-		int SendByte = send(UserPair.second.UserSocket, BufferData.first, BufferData.second, 0);
-		if (SendByte <= 0)
-		{
-			cout << "Send Error from : " << UserPair.first << ". ErrorCode : " << GetLastError() << endl;
-			continue;
-		}
-	}
-}
-
-void PacketMaker::SendPacketToAllConnectedClients(const map<unsigned short, UserData>& UserList, EPacket PacketToSend, const char* MessageToSend, unsigned short ExcepUserNumber)
-{
-	pair<char*, int> BufferData = MakeBuffer(PacketToSend, MessageToSend);
-
-	for (const auto& UserPair : UserList)
-	{
-		if (UserPair.second.UserSocket == INVALID_SOCKET)
-		{
-			continue;
-		}
-
-		if (UserPair.first != ExcepUserNumber)
-		{
-			int SendByte = send(UserPair.second.UserSocket, BufferData.first, BufferData.second, 0);
-			if (SendByte <= 0)
-			{
-				cout << "Send Error from : " << UserPair.first << ". ErrorCode : " << GetLastError() << endl;
-				continue;
-			}
-		}
-	}
-}
+//void PacketMaker::SendPacketToAllConnectedClients(const map<unsigned short, UserData>& UserList, EPacket PacketToSend, const char* MessageToSend)
+//{
+//	pair<char*, int> BufferData = MakeBuffer(PacketToSend, MessageToSend);
+//
+//	for (const auto& UserPair : UserList)
+//	{
+//		if (UserPair.second.UserSocket == INVALID_SOCKET)
+//		{
+//			continue;
+//		}
+//
+//		int SendByte = send(UserPair.second.UserSocket, BufferData.first, BufferData.second, 0);
+//		if (SendByte <= 0)
+//		{
+//			cout << "Send Error from : " << UserPair.first << ". ErrorCode : " << GetLastError() << endl;
+//			continue;
+//		}
+//	}
+//}
+//
+//void PacketMaker::SendPacketToAllConnectedClients(const map<unsigned short, UserData>& UserList, EPacket PacketToSend, const char* MessageToSend, unsigned short ExcepUserNumber)
+//{
+//	pair<char*, int> BufferData = MakeBuffer(PacketToSend, MessageToSend);
+//
+//	for (const auto& UserPair : UserList)
+//	{
+//		if (UserPair.second.UserSocket == INVALID_SOCKET)
+//		{
+//			continue;
+//		}
+//
+//		if (UserPair.first != ExcepUserNumber)
+//		{
+//			int SendByte = send(UserPair.second.UserSocket, BufferData.first, BufferData.second, 0);
+//			if (SendByte <= 0)
+//			{
+//				cout << "Send Error from : " << UserPair.first << ". ErrorCode : " << GetLastError() << endl;
+//				continue;
+//			}
+//		}
+//	}
+//}
 
 pair<char*, int> PacketMaker::MakeBuffer(EPacket Type)
 {

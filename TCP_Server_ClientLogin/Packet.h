@@ -11,15 +11,15 @@ enum class EPacket
 	C2S_Ping									= 2,
 
 	S2C_CastMessage								= 3,
-	//C2S_CastMessage							= 4,  //reserved
+	//C2S_CastMessage							= 4,	//reserved
 
-	S2C_ConnectSuccess							= 100,
+	S2C_ConnectSuccess							= 100,  //reserved
 
 	C2S_ReqSignIn								= 1000,
 	S2C_ResSignIn_Success						= 1001,
 	S2C_ResSignIn_Fail_InValidID				= 1002,
 	S2C_ResSignIn_Fail_InValidPassword			= 1003,
-	S2C_ResSignIn_Fail_AlreadySignIn			= 1004,
+	//S2C_ResSignIn_Fail_AlreadySignIn			= 1004,  //reserved
 
 	C2S_ReqSignUpIDPwd							= 1010,
 	S2C_ResSignUpIDPwd_Success					= 1011,

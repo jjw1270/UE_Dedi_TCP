@@ -15,7 +15,7 @@
 void ULobbyWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
-	
+
 	LobbyGameMode = Cast<ALobbyGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
 	CHECK_VALID(LobbyGameMode);
 
@@ -24,55 +24,67 @@ void ULobbyWidget::NativeConstruct()
 	Button_SignIn->OnClicked.AddDynamic(this, &ULobbyWidget::Button_SignIn_Clicked);
 	Button_SignUp->OnClicked.AddDynamic(this, &ULobbyWidget::Button_SignUp_Clicked);
 	Button_QuitGame->OnClicked.AddDynamic(this, &ULobbyWidget::Button_QuitGame_Clicked);
+	Button_Check->OnClicked.AddDynamic(this, &ULobbyWidget::Button_Check_Clicked);
+	Button_CancelSignUp->OnClicked.AddDynamic(this, &ULobbyWidget::Button_CancelSignUp_Clicked);
+	Button_CheckNickName->OnClicked.AddDynamic(this, &ULobbyWidget::Button_CheckNickName_Clicked);
+	Button_CancelSignUpNickName->OnClicked.AddDynamic(this, &ULobbyWidget::Button_CancelSignUpNickName_Clicked);
 
 	ClientLoginSubsystem = GetGameInstance()->GetSubsystem<UClientLoginSubsystem>();
 	CHECK_VALID(ClientLoginSubsystem);
 
+	EnableInputs(false);
 }
 
 void ULobbyWidget::NativeDestruct()
 {
 	Super::NativeDestruct();
-	
+
 	CHECK_VALID(LobbyGameMode);
 	LobbyGameMode->LobbyInfoDelegate.Unbind();
 }
 
-void ULobbyWidget::OnLobbyInfoDelegate(const FString& InfoMessage, bool bSuccess)
+void ULobbyWidget::OnLobbyInfoDelegate(const FString& InfoMessage, const int32& PacketType, bool bSuccess)
 {
-	TextBlock_Info->SetVisibility(ESlateVisibility::Visible);
+	switch (static_cast<ELoginPacket>(PacketType))
+	{
+	case ELoginPacket::S2C_ConnectSuccess:
+		EnableInputs(true);
+		break;
+	case ELoginPacket::S2C_ResSignIn_Success:
+		EnableInputs(false);
+		break;
+	case ELoginPacket::S2C_ResSignUpIDPwd_Success:
+		Border_SignUp_NickName->SetVisibility(ESlateVisibility::Visible);
+		break;
+	case ELoginPacket::S2C_ResSignUpNickName_Success:
+		Button_CancelSignUpNickName_Clicked();
+		Button_CancelSignUp_Clicked();
+		break;
+	default:
+		break;
+	}
+
 	TextBlock_Info->SetText(FText::FromString(InfoMessage));
 	TextBlock_Info->SetColorAndOpacity(FSlateColor(bSuccess ? FColor::Green : FColor::Red));
-
-	if (InfoMessage == TEXT("로그인 서버 접속 실패"))
-	{
-		// Disable Login Inputs
-		EditableTextBox_ID->SetIsEnabled(false);
-		EditableTextBox_Password->SetIsEnabled(false);
-		Button_SignIn->SetIsEnabled(false);
-		Button_SignUp->SetIsEnabled(false);
-	}
-	else
-	{
-		if (!EditableTextBox_ID->GetIsEnabled())
-		{
-			EditableTextBox_ID->SetIsEnabled(true);
-			EditableTextBox_Password->SetIsEnabled(true);
-			Button_SignIn->SetIsEnabled(true);
-			Button_SignUp->SetIsEnabled(true);
-		}
-	}
 
 	if (InfoTextHandle.IsValid())
 	{
 		GetWorld()->GetTimerManager().ClearTimer(InfoTextHandle);
 	}
-	GetWorld()->GetTimerManager().SetTimer(InfoTextHandle, this, &ULobbyWidget::HideInfoText, 5.f, false);
+
+	TextBlock_Info->SetVisibility(ESlateVisibility::Visible);
+	GetWorld()->GetTimerManager().SetTimer(InfoTextHandle, [&]() {TextBlock_Info->SetVisibility(ESlateVisibility::Hidden); }, 5.f, false);
 }
 
-void ULobbyWidget::HideInfoText()
+void ULobbyWidget::EnableInputs(bool bEnable)
 {
-	TextBlock_Info->SetVisibility(ESlateVisibility::Hidden);
+	if (EditableTextBox_ID->GetIsEnabled() != bEnable)
+	{
+		EditableTextBox_ID->SetIsEnabled(bEnable);
+		EditableTextBox_Password->SetIsEnabled(bEnable);
+		Button_SignIn->SetIsEnabled(bEnable);
+		Button_SignUp->SetIsEnabled(bEnable);
+	}
 }
 
 void ULobbyWidget::Button_SignIn_Clicked()
@@ -80,9 +92,12 @@ void ULobbyWidget::Button_SignIn_Clicked()
 	FString ID = EditableTextBox_ID->GetText().ToString();
 	FString Pwd = EditableTextBox_Password->GetText().ToString();
 
+	EditableTextBox_ID->SetText(FText::GetEmpty());
+	EditableTextBox_Password->SetText(FText::GetEmpty());
+
 	if (ID.Len() <= 0 || Pwd.Len() <= 0)
 	{
-		LobbyGameMode->LobbyInfoDelegate.Execute(TEXT("ID 또는 Password를 입력하세요."), false);
+		LobbyGameMode->LobbyInfoDelegate.ExecuteIfBound(TEXT("ID 또는 Password를 입력하세요."), 0, false);
 		return;
 	}
 
@@ -101,7 +116,43 @@ void ULobbyWidget::Button_SignIn_Clicked()
 
 void ULobbyWidget::Button_SignUp_Clicked()
 {
-	FLoginPacketData PacketData(ELoginPacket::C2S_Ping, TEXT("HELLO"));
+	LobbyGameMode->LobbyInfoDelegate.ExecuteIfBound(TEXT("새로운 ID 또는 Password를 입력하세요."), 0, true);
+
+	EditableTextBox_ID->SetText(FText::GetEmpty());
+	EditableTextBox_Password->SetText(FText::GetEmpty());
+
+	Border_SignUp->SetVisibility(ESlateVisibility::Visible);
+}
+
+void ULobbyWidget::Button_QuitGame_Clicked()
+{
+	APlayerController* PC = GetOwningPlayer();
+	if (PC)
+	{
+		PC->ConsoleCommand("quit");
+	}
+}
+
+void ULobbyWidget::Button_Check_Clicked()
+{
+	FString NewID = EditableTextBox_NewID->GetText().ToString();
+	FString NewPwd = EditableTextBox_NewPassword->GetText().ToString();
+
+	EditableTextBox_NewID->SetText(FText::GetEmpty());
+	EditableTextBox_NewPassword->SetText(FText::GetEmpty());
+
+	if (NewID.Len() <= 0 || NewPwd.Len() <= 0)
+	{
+		LobbyGameMode->LobbyInfoDelegate.ExecuteIfBound(TEXT("새로운 ID 또는 Password를 입력하세요"), 0, false);
+		return;
+	}
+
+	// IDPwd = "ID:Pwd"
+	FString NewIDPwd = NewID;
+	NewIDPwd.Append(TEXT(":"));
+	NewIDPwd.Append(NewPwd);
+
+	FLoginPacketData PacketData(ELoginPacket::C2S_ReqSignUpIDPwd, NewIDPwd);
 	bool bSend = ClientLoginSubsystem->Send(PacketData);
 	if (!bSend)
 	{
@@ -109,12 +160,37 @@ void ULobbyWidget::Button_SignUp_Clicked()
 	}
 }
 
-void ULobbyWidget::Button_QuitGame_Clicked()
+void ULobbyWidget::Button_CancelSignUp_Clicked()
 {
-	FLoginPacketData PacketData(ELoginPacket::C2S_ReqSignIn, TEXT("123가나다라!@#"));
+	EditableTextBox_NewID->SetText(FText::GetEmpty());
+	EditableTextBox_NewPassword->SetText(FText::GetEmpty());
+
+	Border_SignUp->SetVisibility(ESlateVisibility::Collapsed);
+}
+
+void ULobbyWidget::Button_CheckNickName_Clicked()
+{
+	FString NewNickName = EditableTextBox_NewNickName->GetText().ToString();
+
+	EditableTextBox_NewNickName->SetText(FText::GetEmpty());
+
+	if (NewNickName.Len() <= 0)
+	{
+		LobbyGameMode->LobbyInfoDelegate.ExecuteIfBound(TEXT("새로운 닉네임을 입력하세요"), 0, false);
+		return;
+	}
+
+	FLoginPacketData PacketData(ELoginPacket::C2S_ReqSignUpNickName, NewNickName);
 	bool bSend = ClientLoginSubsystem->Send(PacketData);
 	if (!bSend)
 	{
 		ABLOG(Error, TEXT("Send Error"));
 	}
+}
+
+void ULobbyWidget::Button_CancelSignUpNickName_Clicked()
+{
+	EditableTextBox_NewNickName->SetText(FText::GetEmpty());
+
+	Border_SignUp_NickName->SetVisibility(ESlateVisibility::Collapsed);
 }

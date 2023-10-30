@@ -10,7 +10,8 @@
 class TCPSTUDY1_API FClientLoginThread : public FRunnable
 {
 public:
-	FClientLoginThread(class UClientLoginSubsystem*& NewClientLoginSubsystem);
+	//FClientLoginThread(class UClientLoginSubsystem*& NewClientLoginSubsystem);
+	FClientLoginThread(class UClientLoginSubsystem* NewClientLoginSubsystem);
 
 protected:
 	virtual uint32 Run() override;
