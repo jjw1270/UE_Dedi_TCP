@@ -52,6 +52,9 @@ void ULobbyWidget::OnLobbyInfoDelegate(const FString& InfoMessage, const int32& 
 		break;
 	case ELoginPacket::S2C_ResSignIn_Success:
 		EnableInputs(false);
+		// Login Success Logic Here!!
+		//
+		//
 		break;
 	case ELoginPacket::S2C_ResSignUpIDPwd_Success:
 		Border_SignUp_NickName->SetVisibility(ESlateVisibility::Visible);
