@@ -3,6 +3,7 @@
 
 #include "TCP/ClientLogin/ClientLoginSubsystem.h"
 #include "TCPStudy1.h"
+#include "Lobby/LobbyGameMode.h"
 
 #include "Sockets.h"
 #include "SocketSubsystem.h"
@@ -88,6 +89,25 @@ void UClientLoginSubsystem::PrintSocketError(const FString& Text)
 	UE_LOG(LogSockets, Error, TEXT("[%s]  SocketError : %s"), *Text, SocketError);
 }
 
+void UClientLoginSubsystem::ProcessPacket(const FLoginPacketData& NewPacketData)
+{
+	// Edit My Custom Code!
+
+	if (!LobbyGameMode)
+	{
+		UWorld* World = GetWorld();
+		if (World)
+		{
+			LobbyGameMode = Cast<ALobbyGameMode>(World->GetAuthGameMode());
+		}
+	}
+	CHECK_VALID(LobbyGameMode);
+
+	ABLOG(Error, TEXT("ProcessPacket : %d %s"), NewPacketData.PacketType, *NewPacketData.Payload);
+
+	LobbyGameMode->SetProccessPacket(NewPacketData);
+}
+
 bool UClientLoginSubsystem::Recv(FLoginPacketData& OutRecvPacket)
 {
 	if (!Socket)
@@ -146,13 +166,8 @@ bool UClientLoginSubsystem::Recv(FLoginPacketData& OutRecvPacket)
 		}
 
 		ABLOG(Warning, TEXT("[Recv] PacketType : %d, PayloadSize : %d"), RecvPacketType, RecvPayloadSize);
-
-		return true;
 	}
-	else
-	{
-		return false;
-	}
+	return true;
 }
 
 bool UClientLoginSubsystem::Send(const FLoginPacketData& SendPacket)
@@ -208,7 +223,6 @@ bool UClientLoginSubsystem::Send(const FLoginPacketData& SendPacket)
 
 	return true;
 }
-
 
 bool UClientLoginSubsystem::IsConnect()
 {

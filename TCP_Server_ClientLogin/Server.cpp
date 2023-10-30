@@ -28,11 +28,8 @@ using namespace std;
 fd_set Reads;
 fd_set CopyReads;
 
-// Used for Regist User
+// Used for User Sign Up
 map<unsigned short, UserData> TempUserList;
-
-// Use when User Login
-map<unsigned short, UserData> UserList;
 
 bool GetConfigFromFile(string& OutServer, string& OutUserName, string& OutPassword)
 {
@@ -218,68 +215,13 @@ int main()
 	return 0;
 }
 
-void RecvError(SOCKET& ClientSocket)
-{
-	cout << "Server Recv Error : " << GetLastError() << endl;
-
-	SOCKADDR_IN ClientSocketAddr;
-	int ClientSockAddrLength = sizeof(ClientSocketAddr);
-	getpeername(ClientSocket, (SOCKADDR*)&ClientSocketAddr, &ClientSockAddrLength);
-
-	SOCKET DisconnectSocket = ClientSocket;
-	closesocket(ClientSocket);
-	FD_CLR(ClientSocket, &Reads);
-	CopyReads = Reads;
-
-	char IP[1024] = { 0, };
-	inet_ntop(AF_INET, &ClientSocketAddr.sin_addr.s_addr, IP, 1024);
-	cout << "disconnected : " << IP << endl;
-
-	if (TempUserList.count((unsigned short)DisconnectSocket) > 0)
-	{
-		TempUserList.erase(TempUserList.find((unsigned short)DisconnectSocket));
-	}
-
-	string DisconnectUserNickName = UserList[(unsigned short)DisconnectSocket].NickName;
-
-	if (UserList.count((unsigned short)DisconnectSocket) > 0)
-	{
-		UserList.erase(UserList.find((unsigned short)DisconnectSocket));
-	}
-
-	string BroadCastMessage = DisconnectUserNickName + " has left.";
-	PacketMaker::SendPacketToAllConnectedClients(UserList, EPacket::S2C_CastMessage, BroadCastMessage.data());
-}
-
-void SendError(SOCKET& ClientSocket)
-{
-	cout << "Server Send Error : " << GetLastError() << endl;
-
-	//SOCKADDR_IN ClientSocketAddr;
-	//int ClientSockAddrLength = sizeof(ClientSocketAddr);
-	//getpeername(ClientSocket, (SOCKADDR*)&ClientSocketAddr, &ClientSockAddrLength);
-
-	//SOCKET DisconnectSocket = ClientSocket;
-	//closesocket(ClientSocket);
-	//FD_CLR(ClientSocket, &Reads);
-	//CopyReads = Reads;
-
-	//char IP[1024] = { 0, };
-	//inet_ntop(AF_INET, &ClientSocketAddr.sin_addr.s_addr, IP, 1024);
-	//cout << "disconnected : " << IP << endl;
-
-	//if (TempUserList.count((unsigned short)DisconnectSocket) > 0)
-	//{
-	//	TempUserList.erase(TempUserList.find((unsigned short)DisconnectSocket));
-	//}
-
-	//if (UserList.count((unsigned short)DisconnectSocket) > 0)
-	//{
-	//	UserList.erase(UserList.find((unsigned short)DisconnectSocket));
-	//}
-}
+// forward declare funcs
+void RecvError(SOCKET& ClientSocket);
+void SendError(SOCKET& ClientSocket);
+void ProcessPacket(SOCKET& ClientSocket, const unsigned short& UserNumber, const EPacket& PacketType, char*& Payload);
 
 const int HeaderSize = 4;
+
 unsigned WINAPI ServerThread(void* arg)
 {
 	SOCKET ClientSocket = *(SOCKET*)arg;
@@ -297,26 +239,19 @@ unsigned WINAPI ServerThread(void* arg)
 	while (true)
 	{
 		// Recv Header
+		char HeaderBuffer[4] = { 0, };
+		int RecvByte = recv(ClientSocket, HeaderBuffer, HeaderSize, MSG_WAITALL);
+		if (RecvByte == 0 || RecvByte < 0) //close, Error
+		{
+			RecvError(ClientSocket);
+			break;
+		}
+
 		unsigned short PayloadSize = 0;
-		int RecvByte = recv(ClientSocket, (char*)(&PayloadSize), 2, MSG_WAITALL);
-		if (RecvByte == 0 || RecvByte < 0) //close, Error
-		{
-			RecvError(ClientSocket);
-			break;
-		}
-
 		unsigned short PacketType = 0;
-		RecvByte = recv(ClientSocket, (char*)(&PacketType), 2, MSG_WAITALL);
-		if (RecvByte == 0 || RecvByte < 0) //close, Error
-		{
-			RecvError(ClientSocket);
-			break;
-		}
 
-
-
-		//memcpy(&PayloadSize, HeaderBuffer, 2);
-		//memcpy(&PacketType, HeaderBuffer + 2, 2);
+		memcpy(&PayloadSize, HeaderBuffer, 2);
+		memcpy(&PacketType, &HeaderBuffer[2], 2);
 
 		/* I Skip Network Byte Ordering because most of game devices use little endian */
 		//PayloadSize = ntohs(PayloadSize);
@@ -324,12 +259,13 @@ unsigned WINAPI ServerThread(void* arg)
 
 		cout << "[Receive] Payload size : " << PayloadSize << ", Packet type : " << PacketType << endl;
 
+		char* Payload = nullptr;
+
+		// Recv Payload
 		if (PayloadSize > 0)
 		{
-			//Recv Code, Data
-			char* Payload = new char[PayloadSize];
+			Payload = new char[PayloadSize];
 
-			// Payload recv is wchar
 			RecvByte = recv(ClientSocket, Payload, PayloadSize, MSG_WAITALL);
 			if (RecvByte == 0 || RecvByte < 0)
 			{
@@ -337,34 +273,137 @@ unsigned WINAPI ServerThread(void* arg)
 				RecvError(ClientSocket);
 				break;
 			}
-
 			cout << "Data : " << Payload << endl;
-
-			delete[] Payload;
 		}
 
+		ProcessPacket(ClientSocket, UserNumber, static_cast<EPacket>(PacketType), Payload);
 
-		//if (PayloadSize > 0)
-		//{
-		//	//Recv Code, Data
-		//	char* Payload = new char[PayloadSize+1];
-
-		//	RecvByte = recv(ClientSocket, Payload, PayloadSize, MSG_WAITALL);
-		//	if (RecvByte == 0 || RecvByte < 0)
-		//	{
-		//		//close, recv Error
-		//		RecvError(ClientSocket);
-		//		break;
-		//	}
-		//	Payload[PayloadSize] = '\0';
-
-		//	cout << "Data : " << Payload << endl;
-
-		//	delete[] Payload;
-		//}
-
-		//delete[] HeaderBuffer;
+		delete[] Payload;
 	}
 
 	return 0;
+}
+
+void RecvError(SOCKET& ClientSocket)
+{
+	cout << "Server Recv Error : " << GetLastError() << endl;
+
+	SOCKADDR_IN ClientSocketAddr;
+	int ClientSockAddrLength = sizeof(ClientSocketAddr);
+	getpeername(ClientSocket, (SOCKADDR*)&ClientSocketAddr, &ClientSockAddrLength);
+
+	char IP[1024] = { 0, };
+	inet_ntop(AF_INET, &ClientSocketAddr.sin_addr.s_addr, IP, 1024);
+	cout << "disconnected : " << IP << endl;
+
+	if (TempUserList.count((unsigned short)ClientSocket) > 0)
+	{
+		TempUserList.erase(TempUserList.find((unsigned short)ClientSocket));
+	}
+
+	closesocket(ClientSocket);
+	FD_CLR(ClientSocket, &Reads);
+	CopyReads = Reads;
+}
+
+void SendError(SOCKET& ClientSocket)
+{
+	cout << "Server Send Error : " << GetLastError() << endl;
+
+	//SOCKADDR_IN ClientSocketAddr;
+	//int ClientSockAddrLength = sizeof(ClientSocketAddr);
+	//getpeername(ClientSocket, (SOCKADDR*)&ClientSocketAddr, &ClientSockAddrLength);
+
+	//char IP[1024] = { 0, };
+	//inet_ntop(AF_INET, &ClientSocketAddr.sin_addr.s_addr, IP, 1024);
+	//cout << "disconnected : " << IP << endl;
+
+	//if (TempUserList.count((unsigned short)ClientSocket) > 0)
+	//{
+	//	TempUserList.erase(TempUserList.find((unsigned short)ClientSocket));
+	//}
+
+	//closesocket(ClientSocket);
+	//FD_CLR(ClientSocket, &Reads);
+	//CopyReads = Reads;
+}
+
+void ProcessPacket(SOCKET& ClientSocket, const unsigned short& UserNumber, const EPacket& PacketType, char*& Payload)
+{
+	bool bSendSuccess = false;
+	sql::PreparedStatement* Sql_PreStatement = nullptr;
+	sql::ResultSet* Sql_Result = nullptr;
+
+	switch (PacketType)
+	{
+	case EPacket::C2S_ReqSignIn:
+	{
+		cout << "C2S_ReqSignIn" << endl;
+
+		char* ColonPtr = strchr(Payload, ':');
+		if (ColonPtr != nullptr)
+		{
+			int IDLen = ColonPtr - Payload;
+
+			string UserID(Payload, IDLen);
+			string UserPwd(ColonPtr + 1);
+
+			cout << "ID : " << UserID << " Pwd : " << UserPwd << endl;
+
+			// Check ID Exist in DB UserConfig
+			string SqlQuery = "SELECT * FROM userconfig WHERE ID = ?";
+			Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
+			Sql_PreStatement->setString(1, UserID);
+			Sql_Result = Sql_PreStatement->executeQuery();
+
+			// If ID is valid
+			if (Sql_Result->next()) {
+				string dbPassword = Sql_Result->getString("Password");
+
+				// If Password correct, Login Success!!
+				if (UserPwd == dbPassword)
+				{
+					printf("[%d] Password Matched\n", UserNumber);
+
+					string UserNickName = MyUtility::Utf8ToMultibyte(Sql_Result->getString("NickName"));
+
+					bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignIn_Success, UserNickName.c_str());
+					if (!bSendSuccess)
+					{
+						SendError(ClientSocket);
+						break;
+					}
+				}
+				else
+				{
+					// If Password incorrect
+					bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignIn_Fail_InValidPassword);
+					if (!bSendSuccess)
+					{
+						SendError(ClientSocket);
+						break;
+					}
+				}
+			}
+			else
+			{
+				// else ID doesnt exist in db
+				cout << "ID Does Not Exist." << endl;
+
+				bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignIn_Fail_InValidID);
+				if (!bSendSuccess)
+				{
+					SendError(ClientSocket);
+					break;
+				}
+			}
+		}
+	}
+		break;
+	default:
+		break;
+	}
+
+	delete Sql_Result;
+	delete Sql_PreStatement;
 }

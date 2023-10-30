@@ -16,28 +16,26 @@ void ULobbyWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 	
-	ALobbyGameMode* LobbyGameMode = Cast<ALobbyGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
-	if (LobbyGameMode)
-	{
-		LobbyGameMode->LobbyInfoDelegate.BindUFunction(this, FName("OnLobbyInfoDelegate"));
-	}
+	LobbyGameMode = Cast<ALobbyGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
+	CHECK_VALID(LobbyGameMode);
+
+	LobbyGameMode->LobbyInfoDelegate.BindUFunction(this, FName("OnLobbyInfoDelegate"));
 
 	Button_SignIn->OnClicked.AddDynamic(this, &ULobbyWidget::Button_SignIn_Clicked);
 	Button_SignUp->OnClicked.AddDynamic(this, &ULobbyWidget::Button_SignUp_Clicked);
 	Button_QuitGame->OnClicked.AddDynamic(this, &ULobbyWidget::Button_QuitGame_Clicked);
 
 	ClientLoginSubsystem = GetGameInstance()->GetSubsystem<UClientLoginSubsystem>();
+	CHECK_VALID(ClientLoginSubsystem);
+
 }
 
 void ULobbyWidget::NativeDestruct()
 {
 	Super::NativeDestruct();
-
-	ALobbyGameMode* LobbyGameMode = Cast<ALobbyGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
-	if (LobbyGameMode)
-	{
-		LobbyGameMode->LobbyInfoDelegate.Unbind();
-	}
+	
+	CHECK_VALID(LobbyGameMode);
+	LobbyGameMode->LobbyInfoDelegate.Unbind();
 }
 
 void ULobbyWidget::OnLobbyInfoDelegate(const FString& InfoMessage, bool bSuccess)
@@ -70,9 +68,21 @@ void ULobbyWidget::HideInfoText()
 
 void ULobbyWidget::Button_SignIn_Clicked()
 {
-	CHECK_VALID(ClientLoginSubsystem);
+	FString ID = EditableTextBox_ID->GetText().ToString();
+	FString Pwd = EditableTextBox_Password->GetText().ToString();
 
-	FLoginPacketData PacketData(ELoginPacket::C2S_Ping);
+	if (ID.Len() <= 0 || Pwd.Len() <= 0)
+	{
+		LobbyGameMode->LobbyInfoDelegate.Execute(TEXT("ID 또는 Password를 입력하세요."), false);
+		return;
+	}
+
+	// IDPwd = "ID:Pwd"
+	FString IDPwd = ID;
+	IDPwd.Append(TEXT(":"));
+	IDPwd.Append(Pwd);
+
+	FLoginPacketData PacketData(ELoginPacket::C2S_ReqSignIn, IDPwd);
 	bool bSend = ClientLoginSubsystem->Send(PacketData);
 	if (!bSend)
 	{
@@ -82,8 +92,6 @@ void ULobbyWidget::Button_SignIn_Clicked()
 
 void ULobbyWidget::Button_SignUp_Clicked()
 {
-	CHECK_VALID(ClientLoginSubsystem);
-
 	FLoginPacketData PacketData(ELoginPacket::C2S_Ping, TEXT("HELLO"));
 	bool bSend = ClientLoginSubsystem->Send(PacketData);
 	if (!bSend)
@@ -94,8 +102,6 @@ void ULobbyWidget::Button_SignUp_Clicked()
 
 void ULobbyWidget::Button_QuitGame_Clicked()
 {
-	CHECK_VALID(ClientLoginSubsystem);
-
 	FLoginPacketData PacketData(ELoginPacket::C2S_ReqSignIn, TEXT("123가나다라!@#"));
 	bool bSend = ClientLoginSubsystem->Send(PacketData);
 	if (!bSend)

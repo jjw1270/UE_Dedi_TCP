@@ -4,7 +4,7 @@
 #include "Lobby/LobbyGameMode.h"
 #include "TCPStudy1.h"
 #include "MyGameInstance.h"
-#include "ClientLogin/ClientLoginSubsystem.h"
+#include "ClientLogin/ClientLoginThread.h"
 
 void ALobbyGameMode::StartPlay()
 {
@@ -28,12 +28,32 @@ void ALobbyGameMode::StartPlay()
 		return;
 	}
 
-	ABLOG(Warning, TEXT("RECV"));
+	// Start Client Login Thread
+	ClientLoginThread = new FClientLoginThread(ClientLoginSubsystem);
+}
 
-	FLoginPacketData PacketData;
-	bool RecvByte = ClientLoginSubsystem->Recv(PacketData);
-	if (RecvByte && PacketData.PacketType == ELoginPacket::S2C_ConnectSuccess)
+void ALobbyGameMode::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	switch (PacketToProcess.PacketType)
 	{
-		LobbyInfoDelegate.Execute(TEXT("로그인 서버 접속 성공"), true);
+		ABLOG_S(Warning);
+	case ELoginPacket::S2C_ConnectSuccess:
+		LobbyInfoDelegate.ExecuteIfBound(TEXT("로그인 서버 접속 성공"), true);
+		break;
+	default:
+		break;
 	}
+
+	PacketToProcess = FLoginPacketData();
+}
+
+void ALobbyGameMode::Logout(AController* Exiting)
+{
+	ClientLoginThread->Stop();
+
+	delete ClientLoginThread;
+
+	Super::Logout(Exiting);
 }

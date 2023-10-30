@@ -18,7 +18,8 @@ enum class EPacket
 	C2S_ReqSignIn								= 1000,
 	S2C_ResSignIn_Success						= 1001,
 	S2C_ResSignIn_Fail_InValidID				= 1002,
-	S2C_ResSignIn_Fail_AlreadySignIn			= 1003,
+	S2C_ResSignIn_Fail_InValidPassword			= 1003,
+	S2C_ResSignIn_Fail_AlreadySignIn			= 1004,
 
 	C2S_ReqSignUpIDPwd							= 1010,
 	S2C_ResSignUpIDPwd_Success					= 1011,

@@ -64,4 +64,7 @@ private:
 	UPROPERTY()
 	class UClientLoginSubsystem* ClientLoginSubsystem;
 
+	UPROPERTY()
+	class ALobbyGameMode* LobbyGameMode;
+
 };
