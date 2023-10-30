@@ -9,27 +9,6 @@ FClientLoginThread::FClientLoginThread(UClientLoginSubsystem*& NewClientLoginSub
 	: ClientLoginSubsystem(NewClientLoginSubsystem)
 {
 	bStopThread = false;
-
-	Thread = FRunnableThread::Create(this, TEXT("ClientLoginThread"));
-}
-
-FClientLoginThread::~FClientLoginThread()
-{
-    if (Thread)
-	{
-		Thread->WaitForCompletion();
-		Thread->Kill();
-
-		delete Thread;
-	}
-
-	delete ClientLoginSubsystem;
-}
-
-bool FClientLoginThread::Init()
-{
-	ABLOG(Warning, TEXT("Init Thread"));
-	return true;
 }
 
 uint32 FClientLoginThread::Run()
@@ -46,6 +25,7 @@ uint32 FClientLoginThread::Run()
 
 		if (PacketData.PacketType != ELoginPacket::None)
 		{
+			ABLOG_S(Warning);
 			ClientLoginSubsystem->ProcessPacket(PacketData);
 		}
     }
@@ -53,8 +33,7 @@ uint32 FClientLoginThread::Run()
     return 0;
 }
 
-void FClientLoginThread::Stop()
+void FClientLoginThread::StopThread()
 {
-	ABLOG(Warning, TEXT("Stop Thread"));
-    bStopThread = true;
+	bStopThread = true;
 }

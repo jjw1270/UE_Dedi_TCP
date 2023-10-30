@@ -11,15 +11,12 @@ class TCPSTUDY1_API FClientLoginThread : public FRunnable
 {
 public:
 	FClientLoginThread(class UClientLoginSubsystem*& NewClientLoginSubsystem);
-	~FClientLoginThread();
 
 protected:
-	virtual bool Init() override;
-
 	virtual uint32 Run() override;
 
 public:
-	virtual void Stop() override;
+	void StopThread();
 
 private:
 	class UClientLoginSubsystem* ClientLoginSubsystem;
@@ -27,5 +24,4 @@ private:
 private:
 	bool bStopThread;
 
-	FRunnableThread* Thread;
 };

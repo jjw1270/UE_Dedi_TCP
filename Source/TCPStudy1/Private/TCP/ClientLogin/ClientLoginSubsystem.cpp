@@ -116,7 +116,7 @@ bool UClientLoginSubsystem::Recv(FLoginPacketData& OutRecvPacket)
 		return false;
 	}
 
-	if (Socket->Wait(ESocketWaitConditions::WaitForRead, FTimespan::FromSeconds(5)))
+	if (Socket->Wait(ESocketWaitConditions::WaitForRead, FTimespan::FromSeconds(.5f)))
 	{
 		TArray<uint8_t> HeaderBuffer;
 		HeaderBuffer.AddZeroed(HeaderSize);

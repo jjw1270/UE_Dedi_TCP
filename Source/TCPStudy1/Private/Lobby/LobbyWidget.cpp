@@ -51,7 +51,16 @@ void ULobbyWidget::OnLobbyInfoDelegate(const FString& InfoMessage, bool bSuccess
 		EditableTextBox_Password->SetIsEnabled(false);
 		Button_SignIn->SetIsEnabled(false);
 		Button_SignUp->SetIsEnabled(false);
-		return;
+	}
+	else
+	{
+		if (!EditableTextBox_ID->GetIsEnabled())
+		{
+			EditableTextBox_ID->SetIsEnabled(true);
+			EditableTextBox_Password->SetIsEnabled(true);
+			Button_SignIn->SetIsEnabled(true);
+			Button_SignUp->SetIsEnabled(true);
+		}
 	}
 
 	if (InfoTextHandle.IsValid())

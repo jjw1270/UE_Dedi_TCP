@@ -20,21 +20,27 @@ class TCPSTUDY1_API ALobbyGameMode : public AGameModeBase
 protected:
 	virtual void StartPlay() override;
 
-	virtual void Tick(float DeltaTime) override;
+	virtual void PostLogin(APlayerController* NewPlayer) override;
 
 	virtual void Logout(AController* Exiting) override;
 
+private:
+	void ConnectToLoginServer();
+
+	void ManageRecvPacket();
+
 public:
-	FORCEINLINE void SetProccessPacket(FLoginPacketData PacketData) { PacketToProcess = PacketData; }
+	FORCEINLINE void SetProccessPacket(const FLoginPacketData& PacketData) { PacketToProcess = PacketData; };
 
 public:
 	FDele_LobbyInfo LobbyInfoDelegate;
 
 protected:
 	UPROPERTY()
-	UGameInstance* GI;
+	UClientLoginSubsystem* ClientLoginSubsystem;
 
 	class FClientLoginThread* ClientLoginThread;
+	class FRunnableThread* ClientLoginThreadHandle;
 
 	FLoginPacketData PacketToProcess;
 };

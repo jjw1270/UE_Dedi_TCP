@@ -10,13 +10,52 @@ void ALobbyGameMode::StartPlay()
 {
 	Super::StartPlay();
 
-	GI = GetGameInstance();
+}
+
+void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
+{
+	Super::PostLogin(NewPlayer);
+
+	UGameInstance* GI = GetGameInstance();
 	CHECK_VALID(GI);
 
-	UClientLoginSubsystem* ClientLoginSubsystem = GI->GetSubsystem<UClientLoginSubsystem>();
+	ClientLoginSubsystem = GI->GetSubsystem<UClientLoginSubsystem>();
+
+	ConnectToLoginServer();
+
+	// Start Client Login Thread
+	ClientLoginThread = new FClientLoginThread(ClientLoginSubsystem);
+	ClientLoginThreadHandle = FRunnableThread::Create(ClientLoginThread, TEXT("ClientLoginThread"));
+
+	FTimerHandle ProcessPacketHandle;
+	GetWorld()->GetTimerManager().SetTimer(ProcessPacketHandle, this, &ALobbyGameMode::ManageRecvPacket, 0.1f, true);
+}
+
+void ALobbyGameMode::Logout(AController* Exiting)
+{
+	// Clean Thread
+	if (ClientLoginThread)
+	{
+		ClientLoginThread->StopThread();
+
+		if (ClientLoginThreadHandle)
+		{
+			ClientLoginThreadHandle->WaitForCompletion();
+			delete ClientLoginThreadHandle;
+			ClientLoginThreadHandle = nullptr;
+		}
+
+		delete ClientLoginThread;
+		ClientLoginThread = nullptr;
+	}
+
+	Super::Logout(Exiting);
+}
+
+void ALobbyGameMode::ConnectToLoginServer()
+{
 	CHECK_VALID(ClientLoginSubsystem);
 
-	// Connect to ClientLogin TCP Server
 	bool bConnect = ClientLoginSubsystem->Connect(8881, TEXT("127.0.0.1"));
 	if (!bConnect)
 	{
@@ -25,35 +64,36 @@ void ALobbyGameMode::StartPlay()
 			LobbyInfoDelegate.Execute(TEXT("로그인 서버 접속 실패"), false);
 		}
 
-		return;
+		// Reconnect to login server
+		FTimerHandle ReconnectLoginServerHandle;
+		GetWorld()->GetTimerManager().SetTimer(ReconnectLoginServerHandle, this, &ALobbyGameMode::ConnectToLoginServer, 5.f, false);
 	}
-
-	// Start Client Login Thread
-	ClientLoginThread = new FClientLoginThread(ClientLoginSubsystem);
 }
 
-void ALobbyGameMode::Tick(float DeltaTime)
+void ALobbyGameMode::ManageRecvPacket()
 {
-	Super::Tick(DeltaTime);
+	CHECK_VALID(ClientLoginSubsystem);
 
-	switch (PacketToProcess.PacketType)
+	if (PacketToProcess.PacketType != ELoginPacket::None)
 	{
-		ABLOG_S(Warning);
-	case ELoginPacket::S2C_ConnectSuccess:
-		LobbyInfoDelegate.ExecuteIfBound(TEXT("로그인 서버 접속 성공"), true);
-		break;
-	default:
-		break;
+		switch (PacketToProcess.PacketType)
+		{
+		case ELoginPacket::S2C_ConnectSuccess:
+			LobbyInfoDelegate.ExecuteIfBound(TEXT("로그인 서버 접속 성공"), true);
+			break;
+		case ELoginPacket::S2C_ResSignIn_Fail_InValidID:
+			LobbyInfoDelegate.ExecuteIfBound(TEXT("등록되지 않은 아이디 입니다."), false);
+			break;
+		case ELoginPacket::S2C_ResSignIn_Fail_InValidPassword:
+			LobbyInfoDelegate.ExecuteIfBound(TEXT("비밀번호가 일치하지 않습니다."), false);
+			break;
+		case ELoginPacket::S2C_ResSignIn_Success:
+			// Login Success!!!
+			break;
+		default:
+			break;
+		}
+
+		PacketToProcess = FLoginPacketData();
 	}
-
-	PacketToProcess = FLoginPacketData();
-}
-
-void ALobbyGameMode::Logout(AController* Exiting)
-{
-	ClientLoginThread->Stop();
-
-	delete ClientLoginThread;
-
-	Super::Logout(Exiting);
 }
