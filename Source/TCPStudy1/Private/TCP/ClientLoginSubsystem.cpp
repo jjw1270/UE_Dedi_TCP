@@ -224,23 +224,26 @@ bool UClientLoginSubsystem::Recv(FLoginPacketData& OutRecvPacket)
 		// Recv Payload
 		if (RecvPayloadSize > 0)
 		{
-			TArray<uint8_t> PayloadBuffer;
-			PayloadBuffer.AddZeroed(RecvPayloadSize+1);
+			uint8_t* PayloadBuffer = new uint8_t[RecvPayloadSize + 1];
 
 			BytesRead = 0;
-			bool bRecvPayload = Socket->Recv(PayloadBuffer.GetData(), RecvPayloadSize, BytesRead);
+			bool bRecvPayload = Socket->Recv(PayloadBuffer, RecvPayloadSize, BytesRead);
 
 			if (!bRecvPayload)
 			{
 				PrintSocketError(TEXT("Receive Payload"));
 				return false;
 			}
+			PayloadBuffer[RecvPayloadSize] = '\0';
 
 			//Utf8 to FStirng
 			FString PayloadString;
-			PayloadString = FString(UTF8_TO_TCHAR(reinterpret_cast<const char*>(PayloadBuffer.GetData())));
+			PayloadString = FString(UTF8_TO_TCHAR(reinterpret_cast<const char*>(PayloadBuffer)));
 
 			OutRecvPacket.Payload = PayloadString;
+
+			delete[] PayloadBuffer;
+			PayloadBuffer = nullptr;
 		}
 
 		ABLOG(Warning, TEXT(" [Recv] PacketType : %d, PayloadSize : %d"), RecvPacketType, RecvPayloadSize);
