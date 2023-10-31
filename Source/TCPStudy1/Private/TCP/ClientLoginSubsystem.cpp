@@ -2,8 +2,9 @@
 
 
 #include "ClientLoginSubsystem.h"
+/* Custom Includes Here--------------------------------*/
 #include "TCPStudy1.h"
-#include "LoginLobbyGameMode.h"
+/*-----------------------------------------------------*/
 
 #include "Sockets.h"
 #include "SocketSubsystem.h"
@@ -63,8 +64,54 @@ bool UClientLoginSubsystem::Connect(const int32& PortNum, const FString& IP)
 	}
 }
 
+void UClientLoginSubsystem::ConnectToLoginServer()
+{
+	UWorld* World = GetWorld();
+	CHECK_VALID(World);
+
+	bool bConnect = Connect(8881, TEXT("127.0.0.1"));
+	if (!bConnect)
+	{
+		if (RecvPacketDelegate.IsBound())
+		{
+			RecvPacketDelegate.Broadcast(TEXT("로그인 서버 접속 실패"), 0, false);
+		}
+
+		// Reconnect to login server
+		FTimerHandle ReconnectLoginServerHandle;
+		World->GetTimerManager().SetTimer(ReconnectLoginServerHandle, this, &UClientLoginSubsystem::ConnectToLoginServer, 5.f, false);
+	}
+	else
+	{
+		World->GetTimerManager().SetTimer(ManageRecvPacketHandle, this, &UClientLoginSubsystem::ManageRecvPacket, 0.1f, true);
+
+		// Start Client Login Thread
+		ClientLoginThread = new FClientLoginThread(this);
+		ClientLoginThreadHandle = FRunnableThread::Create(ClientLoginThread, TEXT("ClientLoginThread"));
+	}
+}
+
 void UClientLoginSubsystem::DestroySocket()
 {
+	// Clean Thread
+	if (ClientLoginThread)
+	{
+		ClientLoginThread->StopThread();
+
+		if (ClientLoginThreadHandle)
+		{
+			ClientLoginThreadHandle->WaitForCompletion();
+			delete ClientLoginThreadHandle;
+			ClientLoginThreadHandle = nullptr;
+		}
+
+		delete ClientLoginThread;
+		ClientLoginThread = nullptr;
+
+		ABLOG(Warning, TEXT("CleanUp Thread"));
+	}
+
+	// Clean Socket
 	if (Socket)
 	{
 		if (Socket->GetConnectionState() == SCS_Connected)
@@ -89,23 +136,54 @@ void UClientLoginSubsystem::PrintSocketError(const FString& Text)
 	UE_LOG(LogSockets, Error, TEXT("[%s]  SocketError : %s"), *Text, SocketError);
 }
 
-void UClientLoginSubsystem::ProcessPacket(const FLoginPacketData& NewPacketData)
+void UClientLoginSubsystem::ManageRecvPacket()
 {
-	// Edit My Custom Code!
-
-	if (!LoginLobbyGameMode)
+	if (!ClientLoginThreadHandle)
 	{
-		UWorld* World = GetWorld();
-		if (World)
-		{
-			LoginLobbyGameMode = Cast<ALoginLobbyGameMode>(World->GetAuthGameMode());
-		}
+		GetWorld()->GetTimerManager().ClearTimer(ManageRecvPacketHandle);
+		return;
 	}
-	CHECK_VALID(LoginLobbyGameMode);
 
-	ABLOG(Error, TEXT("ProcessPacket : %d %s"), NewPacketData.PacketType, *NewPacketData.Payload);
+	if (!RecvPacketDelegate.IsBound())
+	{
+		return;
+	}
 
-	LoginLobbyGameMode->SetProccessPacket(NewPacketData);
+	int32 PacketCode = static_cast<int32>(RecvPacketData.PacketType);
+
+	switch (RecvPacketData.PacketType)
+	{
+	case ELoginPacket::S2C_ConnectSuccess:
+		RecvPacketDelegate.Broadcast(TEXT("로그인 서버 접속 성공"), PacketCode, true);
+		break;
+	case ELoginPacket::S2C_ResSignIn_Fail_InValidID:
+		SetIDPwd("");
+		RecvPacketDelegate.Broadcast(TEXT("등록되지 않은 아이디 입니다"), PacketCode, false);
+		break;
+	case ELoginPacket::S2C_ResSignIn_Fail_InValidPassword:
+		RecvPacketDelegate.Broadcast(TEXT("비밀번호가 일치하지 않습니다"), PacketCode, false);
+		break;
+	case ELoginPacket::S2C_ResSignIn_Success:
+		SetUserNickName(RecvPacketData.Payload);
+		RecvPacketDelegate.Broadcast(FString::Printf(TEXT("환영합니다 %s 님!"), *RecvPacketData.Payload), PacketCode, true);
+		break;
+	case ELoginPacket::S2C_ResSignUpIDPwd_Success:
+		RecvPacketDelegate.Broadcast(TEXT("새로운 닉네임을 입력하세요"), PacketCode, true);
+		break;
+	case ELoginPacket::S2C_ResSignUpIDPwd_Fail_ExistID:
+		RecvPacketDelegate.Broadcast(TEXT("아이디가 이미 존재합니다"), PacketCode, false);
+		break;
+	case ELoginPacket::S2C_ResSignUpNickName_Success:
+		RecvPacketDelegate.Broadcast(TEXT("등록되었습니다!"), PacketCode, true);
+		break;
+	case ELoginPacket::S2C_ResSignUpNickName_Fail_ExistNickName:
+		RecvPacketDelegate.Broadcast(TEXT("닉네임이 이미 존재합니다"), PacketCode, false);
+		break;
+	default:
+		break;
+	}
+
+	RecvPacketData = FLoginPacketData();
 }
 
 bool UClientLoginSubsystem::Recv(FLoginPacketData& OutRecvPacket)
@@ -147,7 +225,7 @@ bool UClientLoginSubsystem::Recv(FLoginPacketData& OutRecvPacket)
 		if (RecvPayloadSize > 0)
 		{
 			TArray<uint8_t> PayloadBuffer;
-			PayloadBuffer.AddZeroed(RecvPayloadSize);
+			PayloadBuffer.AddZeroed(RecvPayloadSize+1);
 
 			BytesRead = 0;
 			bool bRecvPayload = Socket->Recv(PayloadBuffer.GetData(), RecvPayloadSize, BytesRead);
@@ -229,4 +307,36 @@ bool UClientLoginSubsystem::IsConnect()
 	}
 
 	return false;
+}
+
+FClientLoginThread::FClientLoginThread(UClientLoginSubsystem* NewClientLoginSubsystem)
+	: ClientLoginSubsystem(NewClientLoginSubsystem)
+{
+	bStopThread = false;
+}
+
+uint32 FClientLoginThread::Run()
+{
+	while (!bStopThread)
+	{
+		FLoginPacketData PacketData;
+		bool RecvByte = ClientLoginSubsystem->Recv(PacketData);
+		if (!RecvByte)
+		{
+			ABLOG(Error, TEXT("Recv Error, Stop Thread"));
+			break;
+		}
+
+		if (PacketData.PacketType != ELoginPacket::None)
+		{
+			ClientLoginSubsystem->SetRecvPacket(PacketData);
+		}
+	}
+
+	return 0;
+}
+
+void FClientLoginThread::StopThread()
+{
+	bStopThread = true;
 }

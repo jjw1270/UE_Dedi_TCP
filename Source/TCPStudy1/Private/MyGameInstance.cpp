@@ -3,5 +3,3 @@
 
 #include "MyGameInstance.h"
 #include "TCPStudy1.h"
-#include "RecvThread.h"
-#include "SendThread.h"

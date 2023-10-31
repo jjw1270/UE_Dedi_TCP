@@ -4,20 +4,16 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
-#include "LoginLobbyGameMode.generated.h"
+#include "MainLobbyGameMode.generated.h"
 
 /**
- *
+ * 
  */
-
 UCLASS()
-class TCPSTUDY1_API ALoginLobbyGameMode : public AGameModeBase
+class TCPSTUDY1_API AMainLobbyGameMode : public AGameModeBase
 {
 	GENERATED_BODY()
-
-protected:
+	
 	virtual void StartPlay() override;
-
-	virtual void Logout(AController* Exiting) override;
 
 };

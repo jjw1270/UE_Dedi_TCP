@@ -13,5 +13,4 @@ UCLASS()
 class TCPSTUDY1_API UMyGameInstance : public UGameInstance
 {
 	GENERATED_BODY()
-
 };

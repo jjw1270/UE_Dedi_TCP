@@ -74,7 +74,7 @@ protected:
 
 private:
 	UFUNCTION()
-	void OnLoginLobbyInfoDelegate(const FString& InfoMessage, const int32& PacketCode, bool bSuccess);
+	void OnRecvPacketDelegate(const FString& InfoMessage, const int32& PacketCode, bool bSuccess);
 
 	FTimerHandle InfoTextHandle;
 
@@ -108,8 +108,5 @@ private:
 private:
 	UPROPERTY()
 	class UClientLoginSubsystem* ClientLoginSubsystem;
-
-	UPROPERTY()
-	class ALoginLobbyGameMode* LoginLobbyGameMode;
 
 };

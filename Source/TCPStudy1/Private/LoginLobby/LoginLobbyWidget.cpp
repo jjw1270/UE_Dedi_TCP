@@ -4,7 +4,6 @@
 #include "LoginLobbyWidget.h"
 #include "TCPStudy1.h"
 #include "Kismet/GameplayStatics.h"
-#include "LoginLobbyGameMode.h"
 #include "ClientLoginSubsystem.h"
 
 #include "Components/Border.h"
@@ -16,10 +15,10 @@ void ULoginLobbyWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	LoginLobbyGameMode = Cast<ALoginLobbyGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
-	CHECK_VALID(LoginLobbyGameMode);
+	ClientLoginSubsystem = GetGameInstance()->GetSubsystem<UClientLoginSubsystem>();
+	CHECK_VALID(ClientLoginSubsystem);
 
-	LoginLobbyGameMode->LoginLobbyInfoDelegate.BindUFunction(this, FName("OnLoginLobbyInfoDelegate"));
+	ClientLoginSubsystem->RecvPacketDelegate.AddUFunction(this, FName("OnRecvPacketDelegate"));
 
 	Button_SignIn->OnClicked.AddDynamic(this, &ULoginLobbyWidget::Button_SignIn_Clicked);
 	Button_SignUp->OnClicked.AddDynamic(this, &ULoginLobbyWidget::Button_SignUp_Clicked);
@@ -29,26 +28,25 @@ void ULoginLobbyWidget::NativeConstruct()
 	Button_CheckNickName->OnClicked.AddDynamic(this, &ULoginLobbyWidget::Button_CheckNickName_Clicked);
 	Button_CancelSignUpNickName->OnClicked.AddDynamic(this, &ULoginLobbyWidget::Button_CancelSignUpNickName_Clicked);
 
-	ClientLoginSubsystem = GetGameInstance()->GetSubsystem<UClientLoginSubsystem>();
-	CHECK_VALID(ClientLoginSubsystem);
-
 	EnableInputs(false);
 }
 
 void ULoginLobbyWidget::NativeDestruct()
 {
-	Super::NativeDestruct();
+	if (ClientLoginSubsystem)
+	{
+		ClientLoginSubsystem->RecvPacketDelegate.Clear();
+	}
 
-	CHECK_VALID(LoginLobbyGameMode);
-	LoginLobbyGameMode->LoginLobbyInfoDelegate.Unbind();
+	Super::NativeDestruct();
 }
 
-void ULoginLobbyWidget::OnLoginLobbyInfoDelegate(const FString& InfoMessage, const int32& PacketType, bool bSuccess)
+void ULoginLobbyWidget::OnRecvPacketDelegate(const FString& InfoMessage, const int32& PacketCode, bool bSuccess)
 {
 	UWorld* World = GetWorld();
 	CHECK_VALID(World);
 
-	switch (static_cast<ELoginPacket>(PacketType))
+	switch (static_cast<ELoginPacket>(PacketCode))
 	{
 	case ELoginPacket::S2C_ConnectSuccess:
 		EnableInputs(true);
@@ -105,6 +103,7 @@ void ULoginLobbyWidget::GotoMainLobby()
 	}
 
 	RemoveFromParent();
+	UGameplayStatics::OpenLevel(World, TEXT("MainLobbyLevel"));
 }
 
 void ULoginLobbyWidget::Button_SignIn_Clicked()
@@ -117,7 +116,10 @@ void ULoginLobbyWidget::Button_SignIn_Clicked()
 
 	if (ID.Len() <= 0 || Pwd.Len() <= 0)
 	{
-		LoginLobbyGameMode->LoginLobbyInfoDelegate.ExecuteIfBound(TEXT("ID 또는 Password를 입력하세요."), 0, false);
+		if (ClientLoginSubsystem->RecvPacketDelegate.IsBound())
+		{
+			ClientLoginSubsystem->RecvPacketDelegate.Broadcast(TEXT("ID 또는 Password를 입력하세요."), 0, false);
+		}
 		return;
 	}
 
@@ -125,6 +127,8 @@ void ULoginLobbyWidget::Button_SignIn_Clicked()
 	FString IDPwd = ID;
 	IDPwd.Append(TEXT(":"));
 	IDPwd.Append(Pwd);
+
+	ClientLoginSubsystem->SetIDPwd(IDPwd);
 
 	FLoginPacketData PacketData(ELoginPacket::C2S_ReqSignIn, IDPwd);
 	bool bSend = ClientLoginSubsystem->Send(PacketData);
@@ -136,8 +140,10 @@ void ULoginLobbyWidget::Button_SignIn_Clicked()
 
 void ULoginLobbyWidget::Button_SignUp_Clicked()
 {
-	LoginLobbyGameMode->LoginLobbyInfoDelegate.ExecuteIfBound(TEXT("새로운 ID 또는 Password를 입력하세요."), 0, true);
-
+	if (ClientLoginSubsystem->RecvPacketDelegate.IsBound())
+	{
+		ClientLoginSubsystem->RecvPacketDelegate.Broadcast(TEXT("새로운 ID 또는 Password를 입력하세요."), 0, true);
+	}
 	EditableTextBox_ID->SetText(FText::GetEmpty());
 	EditableTextBox_Password->SetText(FText::GetEmpty());
 
@@ -165,13 +171,19 @@ void ULoginLobbyWidget::Button_Check_Clicked()
 
 	if (NewID.Len() <= 0 || NewPwd.Len() <= 0)
 	{
-		LoginLobbyGameMode->LoginLobbyInfoDelegate.ExecuteIfBound(TEXT("새로운 ID 또는 Password를 입력하세요"), 0, false);
+		if (ClientLoginSubsystem->RecvPacketDelegate.IsBound())
+		{
+			ClientLoginSubsystem->RecvPacketDelegate.Broadcast(TEXT("새로운 ID 또는 Password를 입력하세요"), 0, false);
+		}
 		return;
 	}
 
 	if (NewPwd != ConfirmNewPwd)
 	{
-		LoginLobbyGameMode->LoginLobbyInfoDelegate.ExecuteIfBound(TEXT("비밀번호를 확인하세요"), 0, false);
+		if (ClientLoginSubsystem->RecvPacketDelegate.IsBound())
+		{
+			ClientLoginSubsystem->RecvPacketDelegate.Broadcast(TEXT("비밀번호를 확인하세요"), 0, false);
+		}
 		return;
 	}
 
@@ -205,7 +217,10 @@ void ULoginLobbyWidget::Button_CheckNickName_Clicked()
 
 	if (NewNickName.Len() <= 0)
 	{
-		LoginLobbyGameMode->LoginLobbyInfoDelegate.ExecuteIfBound(TEXT("새로운 닉네임을 입력하세요"), 0, false);
+		if (ClientLoginSubsystem->RecvPacketDelegate.IsBound())
+		{
+			ClientLoginSubsystem->RecvPacketDelegate.Broadcast(TEXT("새로운 닉네임을 입력하세요"), 0, false);
+		}
 		return;
 	}
 

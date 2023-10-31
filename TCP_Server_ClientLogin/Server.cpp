@@ -499,6 +499,13 @@ void ProcessPacket(SOCKET& ClientSocket, const unsigned short& UserNumber, const
 		}
 	}
 	break;
+	case EPacket::C2S_ReqMatchMaking:
+	{
+		// find Available Dedi Server from DB
+		// if true, send available Dedi Server IP
+		// else, Play Dedi Server
+	}
+	break;
 	default:
 		break;
 	}

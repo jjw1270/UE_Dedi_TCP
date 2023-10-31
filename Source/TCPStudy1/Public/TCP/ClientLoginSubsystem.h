@@ -36,6 +36,9 @@ enum class ELoginPacket
 	S2C_ResSignUpNickName_Success							= 1021,
 	S2C_ResSignUpNickName_Fail_ExistNickName				= 1022,
 
+	C2S_ReqMatchMaking										= 2000,
+	S2C_ResMatchMaking_DediIP								= 2001,
+
 	Max,
 };
 
@@ -51,6 +54,8 @@ public:
 	FString Payload;
 };
 
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FDele_RecvPacket, const FString&, const int32&, bool);
+
 const int32 HeaderSize{ 4 };
 UCLASS()
 class TCPSTUDY1_API UClientLoginSubsystem : public UGameInstanceSubsystem
@@ -64,29 +69,80 @@ protected:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 
 	virtual void Deinitialize() override;
-	
-public:
+
+protected:
 	bool Connect(const int32& PortNum, const FString& IP);
+
+/* < Funcs You Can Use > ------------------------------*/
+public:
+	void ConnectToLoginServer();
+
+	FORCEINLINE void SetRecvPacket(const FLoginPacketData& RecvPacket) { RecvPacketData = RecvPacket; };
 
 	void DestroySocket();
 
+	// DONT USE THIS FUNC!!! -> Use ManageRecvPacket()
 	bool Recv(FLoginPacketData& OutRecvPacket);
 
 	bool Send(const FLoginPacketData& SendPacket);
 
 	bool IsConnect();
+/*-----------------------------------------------------*/
+
+/* < MultiCast Delegates You Can Use > ----------------*/
+public:
+	FDele_RecvPacket RecvPacketDelegate;
+/*-----------------------------------------------------*/
 
 protected:
+	// For Socket Error Log
 	void PrintSocketError(const FString& Text);
 
-public:
-	void ProcessPacket(const FLoginPacketData& NewPacketData);
+protected:
+/* Your Custom Codes In this Func----------------------*/
+	UFUNCTION()
+	void ManageRecvPacket();
+/*-----------------------------------------------------*/
 
-private:
+/* Your Custom Vars In Here----------------------------*/
+public:
+	FORCEINLINE const FString& GetIDPwd() const { return IDPwd; };
+	FORCEINLINE void SetIDPwd(const FString& NewIDPwd) { IDPwd = NewIDPwd; };
+
+	FORCEINLINE const FString& GetUserNickName() const { return UserNickName; };
+	FORCEINLINE void SetUserNickName(const FString& NewNickName) { UserNickName = NewNickName; };
+
+protected:
+	FString IDPwd;
+
+	FString UserNickName;
+/*-----------------------------------------------------*/
+
+protected:
 	FSocket* Socket;
 
+	class FClientLoginThread* ClientLoginThread;
+	class FRunnableThread* ClientLoginThreadHandle;
+
+	FLoginPacketData RecvPacketData;
+	FTimerHandle ManageRecvPacketHandle;
+};
+
+class TCPSTUDY1_API FClientLoginThread : public FRunnable
+{
+public:
+	FClientLoginThread(class UClientLoginSubsystem* NewClientLoginSubsystem);
+
+protected:
+	virtual uint32 Run() override;
+
+public:
+	void StopThread();
+
 private:
-	UPROPERTY()
-	class ALoginLobbyGameMode* LoginLobbyGameMode;
+	class UClientLoginSubsystem* ClientLoginSubsystem;
+
+private:
+	bool bStopThread;
 
 };

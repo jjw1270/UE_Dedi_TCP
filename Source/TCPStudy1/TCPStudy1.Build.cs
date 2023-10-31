@@ -9,7 +9,7 @@ public class TCPStudy1 : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "Sockets", "Networking", "RigLogicLib", "UMG" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "UMG", "Sockets", "Networking", /*"RigLogicLib",*/ });
 
         PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 
@@ -18,8 +18,8 @@ public class TCPStudy1 : ModuleRules
                 ModuleDirectory,
                 Path.Combine(ModuleDirectory, "Public"),
                 Path.Combine(ModuleDirectory, "Public/TCP"),
-                Path.Combine(ModuleDirectory, "Public/TCP/ClientLogin"),
                 Path.Combine(ModuleDirectory, "Public/LoginLobby"),
+                Path.Combine(ModuleDirectory, "Public/MainLobby"),
 
             }
         );
