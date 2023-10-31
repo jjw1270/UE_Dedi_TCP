@@ -251,7 +251,7 @@ unsigned WINAPI ServerThread(void* arg)
 	while (true)
 	{
 		// Recv Header
-		char HeaderBuffer[4] = { 0, };
+		char HeaderBuffer[HeaderSize] = { 0, };
 		int RecvByte = recv(ClientSocket, HeaderBuffer, HeaderSize, MSG_WAITALL);
 		if (RecvByte == 0 || RecvByte < 0) //close, Error
 		{
@@ -276,7 +276,7 @@ unsigned WINAPI ServerThread(void* arg)
 		// Recv Payload
 		if (PayloadSize > 0)
 		{
-			Payload = new char[PayloadSize];
+			Payload = new char[PayloadSize+1];
 
 			RecvByte = recv(ClientSocket, Payload, PayloadSize, MSG_WAITALL);
 			if (RecvByte == 0 || RecvByte < 0)
@@ -285,6 +285,7 @@ unsigned WINAPI ServerThread(void* arg)
 				RecvError(ClientSocket);
 				break;
 			}
+			Payload[PayloadSize] = '\0';
 			cout << "Data : " << Payload << endl;
 		}
 
