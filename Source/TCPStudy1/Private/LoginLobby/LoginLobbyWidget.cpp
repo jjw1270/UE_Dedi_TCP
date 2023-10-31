@@ -1,33 +1,33 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Lobby/LobbyWidget.h"
+#include "LoginLobbyWidget.h"
 #include "TCPStudy1.h"
 #include "Kismet/GameplayStatics.h"
-#include "Lobby/LobbyGameMode.h"
-#include "ClientLogin/ClientLoginSubsystem.h"
+#include "LoginLobbyGameMode.h"
+#include "ClientLoginSubsystem.h"
 
 #include "Components/Border.h"
 #include "Components/TextBlock.h"
 #include "Components/Button.h"
 #include "Components/EditableTextBox.h"
 
-void ULobbyWidget::NativeConstruct()
+void ULoginLobbyWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	LobbyGameMode = Cast<ALobbyGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
-	CHECK_VALID(LobbyGameMode);
+	LoginLobbyGameMode = Cast<ALoginLobbyGameMode>(UGameplayStatics::GetGameMode(GetWorld()));
+	CHECK_VALID(LoginLobbyGameMode);
 
-	LobbyGameMode->LobbyInfoDelegate.BindUFunction(this, FName("OnLobbyInfoDelegate"));
+	LoginLobbyGameMode->LoginLobbyInfoDelegate.BindUFunction(this, FName("OnLoginLobbyInfoDelegate"));
 
-	Button_SignIn->OnClicked.AddDynamic(this, &ULobbyWidget::Button_SignIn_Clicked);
-	Button_SignUp->OnClicked.AddDynamic(this, &ULobbyWidget::Button_SignUp_Clicked);
-	Button_QuitGame->OnClicked.AddDynamic(this, &ULobbyWidget::Button_QuitGame_Clicked);
-	Button_Check->OnClicked.AddDynamic(this, &ULobbyWidget::Button_Check_Clicked);
-	Button_CancelSignUp->OnClicked.AddDynamic(this, &ULobbyWidget::Button_CancelSignUp_Clicked);
-	Button_CheckNickName->OnClicked.AddDynamic(this, &ULobbyWidget::Button_CheckNickName_Clicked);
-	Button_CancelSignUpNickName->OnClicked.AddDynamic(this, &ULobbyWidget::Button_CancelSignUpNickName_Clicked);
+	Button_SignIn->OnClicked.AddDynamic(this, &ULoginLobbyWidget::Button_SignIn_Clicked);
+	Button_SignUp->OnClicked.AddDynamic(this, &ULoginLobbyWidget::Button_SignUp_Clicked);
+	Button_QuitGame->OnClicked.AddDynamic(this, &ULoginLobbyWidget::Button_QuitGame_Clicked);
+	Button_Check->OnClicked.AddDynamic(this, &ULoginLobbyWidget::Button_Check_Clicked);
+	Button_CancelSignUp->OnClicked.AddDynamic(this, &ULoginLobbyWidget::Button_CancelSignUp_Clicked);
+	Button_CheckNickName->OnClicked.AddDynamic(this, &ULoginLobbyWidget::Button_CheckNickName_Clicked);
+	Button_CancelSignUpNickName->OnClicked.AddDynamic(this, &ULoginLobbyWidget::Button_CancelSignUpNickName_Clicked);
 
 	ClientLoginSubsystem = GetGameInstance()->GetSubsystem<UClientLoginSubsystem>();
 	CHECK_VALID(ClientLoginSubsystem);
@@ -35,26 +35,30 @@ void ULobbyWidget::NativeConstruct()
 	EnableInputs(false);
 }
 
-void ULobbyWidget::NativeDestruct()
+void ULoginLobbyWidget::NativeDestruct()
 {
 	Super::NativeDestruct();
 
-	CHECK_VALID(LobbyGameMode);
-	LobbyGameMode->LobbyInfoDelegate.Unbind();
+	CHECK_VALID(LoginLobbyGameMode);
+	LoginLobbyGameMode->LoginLobbyInfoDelegate.Unbind();
 }
 
-void ULobbyWidget::OnLobbyInfoDelegate(const FString& InfoMessage, const int32& PacketType, bool bSuccess)
+void ULoginLobbyWidget::OnLoginLobbyInfoDelegate(const FString& InfoMessage, const int32& PacketType, bool bSuccess)
 {
+	UWorld* World = GetWorld();
+	CHECK_VALID(World);
+
 	switch (static_cast<ELoginPacket>(PacketType))
 	{
 	case ELoginPacket::S2C_ConnectSuccess:
 		EnableInputs(true);
 		break;
 	case ELoginPacket::S2C_ResSignIn_Success:
+	{
 		EnableInputs(false);
-		// Login Success Logic Here!!
-		//
-		//
+		FTimerHandle DelayLoginHandle;
+		World->GetTimerManager().SetTimer(DelayLoginHandle, this, &ULoginLobbyWidget::GotoMainLobby, 3.f, false);
+	}
 		break;
 	case ELoginPacket::S2C_ResSignUpIDPwd_Success:
 		Border_SignUp_NickName->SetVisibility(ESlateVisibility::Visible);
@@ -72,14 +76,14 @@ void ULobbyWidget::OnLobbyInfoDelegate(const FString& InfoMessage, const int32& 
 
 	if (InfoTextHandle.IsValid())
 	{
-		GetWorld()->GetTimerManager().ClearTimer(InfoTextHandle);
+		World->GetTimerManager().ClearTimer(InfoTextHandle);
 	}
 
 	TextBlock_Info->SetVisibility(ESlateVisibility::Visible);
-	GetWorld()->GetTimerManager().SetTimer(InfoTextHandle, [&]() {TextBlock_Info->SetVisibility(ESlateVisibility::Hidden); }, 5.f, false);
+	World->GetTimerManager().SetTimer(InfoTextHandle, [&]() {TextBlock_Info->SetVisibility(ESlateVisibility::Hidden); }, 5.f, false);
 }
 
-void ULobbyWidget::EnableInputs(bool bEnable)
+void ULoginLobbyWidget::EnableInputs(bool bEnable)
 {
 	if (EditableTextBox_ID->GetIsEnabled() != bEnable)
 	{
@@ -90,7 +94,20 @@ void ULobbyWidget::EnableInputs(bool bEnable)
 	}
 }
 
-void ULobbyWidget::Button_SignIn_Clicked()
+void ULoginLobbyWidget::GotoMainLobby()
+{
+	UWorld* World = GetWorld();
+	CHECK_VALID(World);
+
+	if (InfoTextHandle.IsValid())
+	{
+		World->GetTimerManager().ClearTimer(InfoTextHandle);
+	}
+
+	RemoveFromParent();
+}
+
+void ULoginLobbyWidget::Button_SignIn_Clicked()
 {
 	FString ID = EditableTextBox_ID->GetText().ToString();
 	FString Pwd = EditableTextBox_Password->GetText().ToString();
@@ -100,7 +117,7 @@ void ULobbyWidget::Button_SignIn_Clicked()
 
 	if (ID.Len() <= 0 || Pwd.Len() <= 0)
 	{
-		LobbyGameMode->LobbyInfoDelegate.ExecuteIfBound(TEXT("ID 또는 Password를 입력하세요."), 0, false);
+		LoginLobbyGameMode->LoginLobbyInfoDelegate.ExecuteIfBound(TEXT("ID 또는 Password를 입력하세요."), 0, false);
 		return;
 	}
 
@@ -117,9 +134,9 @@ void ULobbyWidget::Button_SignIn_Clicked()
 	}
 }
 
-void ULobbyWidget::Button_SignUp_Clicked()
+void ULoginLobbyWidget::Button_SignUp_Clicked()
 {
-	LobbyGameMode->LobbyInfoDelegate.ExecuteIfBound(TEXT("새로운 ID 또는 Password를 입력하세요."), 0, true);
+	LoginLobbyGameMode->LoginLobbyInfoDelegate.ExecuteIfBound(TEXT("새로운 ID 또는 Password를 입력하세요."), 0, true);
 
 	EditableTextBox_ID->SetText(FText::GetEmpty());
 	EditableTextBox_Password->SetText(FText::GetEmpty());
@@ -127,7 +144,7 @@ void ULobbyWidget::Button_SignUp_Clicked()
 	Border_SignUp->SetVisibility(ESlateVisibility::Visible);
 }
 
-void ULobbyWidget::Button_QuitGame_Clicked()
+void ULoginLobbyWidget::Button_QuitGame_Clicked()
 {
 	APlayerController* PC = GetOwningPlayer();
 	if (PC)
@@ -136,17 +153,25 @@ void ULobbyWidget::Button_QuitGame_Clicked()
 	}
 }
 
-void ULobbyWidget::Button_Check_Clicked()
+void ULoginLobbyWidget::Button_Check_Clicked()
 {
 	FString NewID = EditableTextBox_NewID->GetText().ToString();
 	FString NewPwd = EditableTextBox_NewPassword->GetText().ToString();
+	FString ConfirmNewPwd = EditableTextBox_ConfirmNewPassword->GetText().ToString();
 
 	EditableTextBox_NewID->SetText(FText::GetEmpty());
 	EditableTextBox_NewPassword->SetText(FText::GetEmpty());
+	EditableTextBox_ConfirmNewPassword->SetText(FText::GetEmpty());
 
 	if (NewID.Len() <= 0 || NewPwd.Len() <= 0)
 	{
-		LobbyGameMode->LobbyInfoDelegate.ExecuteIfBound(TEXT("새로운 ID 또는 Password를 입력하세요"), 0, false);
+		LoginLobbyGameMode->LoginLobbyInfoDelegate.ExecuteIfBound(TEXT("새로운 ID 또는 Password를 입력하세요"), 0, false);
+		return;
+	}
+
+	if (NewPwd != ConfirmNewPwd)
+	{
+		LoginLobbyGameMode->LoginLobbyInfoDelegate.ExecuteIfBound(TEXT("비밀번호를 확인하세요"), 0, false);
 		return;
 	}
 
@@ -163,15 +188,16 @@ void ULobbyWidget::Button_Check_Clicked()
 	}
 }
 
-void ULobbyWidget::Button_CancelSignUp_Clicked()
+void ULoginLobbyWidget::Button_CancelSignUp_Clicked()
 {
 	EditableTextBox_NewID->SetText(FText::GetEmpty());
 	EditableTextBox_NewPassword->SetText(FText::GetEmpty());
+	EditableTextBox_ConfirmNewPassword->SetText(FText::GetEmpty());
 
 	Border_SignUp->SetVisibility(ESlateVisibility::Collapsed);
 }
 
-void ULobbyWidget::Button_CheckNickName_Clicked()
+void ULoginLobbyWidget::Button_CheckNickName_Clicked()
 {
 	FString NewNickName = EditableTextBox_NewNickName->GetText().ToString();
 
@@ -179,7 +205,7 @@ void ULobbyWidget::Button_CheckNickName_Clicked()
 
 	if (NewNickName.Len() <= 0)
 	{
-		LobbyGameMode->LobbyInfoDelegate.ExecuteIfBound(TEXT("새로운 닉네임을 입력하세요"), 0, false);
+		LoginLobbyGameMode->LoginLobbyInfoDelegate.ExecuteIfBound(TEXT("새로운 닉네임을 입력하세요"), 0, false);
 		return;
 	}
 
@@ -191,7 +217,7 @@ void ULobbyWidget::Button_CheckNickName_Clicked()
 	}
 }
 
-void ULobbyWidget::Button_CancelSignUpNickName_Clicked()
+void ULoginLobbyWidget::Button_CancelSignUpNickName_Clicked()
 {
 	EditableTextBox_NewNickName->SetText(FText::GetEmpty());
 

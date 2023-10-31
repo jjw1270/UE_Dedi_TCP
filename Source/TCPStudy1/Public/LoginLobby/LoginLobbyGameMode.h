@@ -3,17 +3,17 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ClientLogin/ClientLoginSubsystem.h"
+#include "ClientLoginSubsystem.h"
 #include "GameFramework/GameModeBase.h"
-#include "LobbyGameMode.generated.h"
+#include "LoginLobbyGameMode.generated.h"
 
 /**
  *
  */
-DECLARE_DELEGATE_ThreeParams(FDele_LobbyInfo, const FString&, const int32&, bool);
+DECLARE_DELEGATE_ThreeParams(FDele_LoginLobbyInfo, const FString&, const int32&, bool);
 
 UCLASS()
-class TCPSTUDY1_API ALobbyGameMode : public AGameModeBase
+class TCPSTUDY1_API ALoginLobbyGameMode : public AGameModeBase
 {
 	GENERATED_BODY()
 
@@ -31,7 +31,7 @@ public:
 	FORCEINLINE void SetProccessPacket(const FLoginPacketData& PacketData) { PacketToProcess = PacketData; };
 
 public:
-	FDele_LobbyInfo LobbyInfoDelegate;
+	FDele_LoginLobbyInfo LoginLobbyInfoDelegate;
 
 protected:
 	UPROPERTY()

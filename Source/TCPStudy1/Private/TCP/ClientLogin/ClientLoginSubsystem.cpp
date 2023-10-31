@@ -1,9 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "TCP/ClientLogin/ClientLoginSubsystem.h"
+#include "ClientLoginSubsystem.h"
 #include "TCPStudy1.h"
-#include "Lobby/LobbyGameMode.h"
+#include "LoginLobbyGameMode.h"
 
 #include "Sockets.h"
 #include "SocketSubsystem.h"
@@ -93,19 +93,19 @@ void UClientLoginSubsystem::ProcessPacket(const FLoginPacketData& NewPacketData)
 {
 	// Edit My Custom Code!
 
-	if (!LobbyGameMode)
+	if (!LoginLobbyGameMode)
 	{
 		UWorld* World = GetWorld();
 		if (World)
 		{
-			LobbyGameMode = Cast<ALobbyGameMode>(World->GetAuthGameMode());
+			LoginLobbyGameMode = Cast<ALoginLobbyGameMode>(World->GetAuthGameMode());
 		}
 	}
-	CHECK_VALID(LobbyGameMode);
+	CHECK_VALID(LoginLobbyGameMode);
 
 	ABLOG(Error, TEXT("ProcessPacket : %d %s"), NewPacketData.PacketType, *NewPacketData.Payload);
 
-	LobbyGameMode->SetProccessPacket(NewPacketData);
+	LoginLobbyGameMode->SetProccessPacket(NewPacketData);
 }
 
 bool UClientLoginSubsystem::Recv(FLoginPacketData& OutRecvPacket)
@@ -165,7 +165,7 @@ bool UClientLoginSubsystem::Recv(FLoginPacketData& OutRecvPacket)
 			OutRecvPacket.Payload = PayloadString;
 		}
 
-		ABLOG(Warning, TEXT("[Recv] PacketType : %d, PayloadSize : %d"), RecvPacketType, RecvPayloadSize);
+		ABLOG(Warning, TEXT(" [Recv] PacketType : %d, PayloadSize : %d"), RecvPacketType, RecvPayloadSize);
 	}
 	return true;
 }

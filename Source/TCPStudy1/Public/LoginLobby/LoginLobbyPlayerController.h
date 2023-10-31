@@ -4,13 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
-#include "LobbyPlayerController.generated.h"
+#include "LoginLobbyPlayerController.generated.h"
 
 /**
  *
  */
 UCLASS()
-class TCPSTUDY1_API ALobbyPlayerController : public APlayerController
+class TCPSTUDY1_API ALoginLobbyPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 
@@ -19,9 +19,9 @@ protected:
 
 private:
 	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<class ULobbyWidget> LobbyWidgetClass;
+	TSubclassOf<class ULoginLobbyWidget> LoginLobbyWidgetClass;
 
 	UPROPERTY()
-	class ULobbyWidget* LobbyWidget;
+	class ULoginLobbyWidget* LoginLobbyWidget;
 
 };

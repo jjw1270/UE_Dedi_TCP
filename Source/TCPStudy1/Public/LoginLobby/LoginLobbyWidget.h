@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
-#include "LobbyWidget.generated.h"
+#include "LoginLobbyWidget.generated.h"
 
 /**
  * 
@@ -14,7 +14,7 @@ class UButton;
 class UEditableTextBox;
 
 UCLASS()
-class TCPSTUDY1_API ULobbyWidget : public UUserWidget
+class TCPSTUDY1_API ULoginLobbyWidget : public UUserWidget
 {
 	GENERATED_BODY()
 	
@@ -52,6 +52,9 @@ protected:
 	UEditableTextBox* EditableTextBox_NewPassword;
 
 	UPROPERTY(meta = (BindWidget))
+	UEditableTextBox* EditableTextBox_ConfirmNewPassword;
+
+	UPROPERTY(meta = (BindWidget))
 	UButton* Button_Check;
 
 	UPROPERTY(meta = (BindWidget))
@@ -71,11 +74,13 @@ protected:
 
 private:
 	UFUNCTION()
-	void OnLobbyInfoDelegate(const FString& InfoMessage, const int32& PacketCode, bool bSuccess);
+	void OnLoginLobbyInfoDelegate(const FString& InfoMessage, const int32& PacketCode, bool bSuccess);
 
 	FTimerHandle InfoTextHandle;
 
 	void EnableInputs(bool bEnable);
+
+	void GotoMainLobby();
 
 // Button Events
 private:
@@ -105,6 +110,6 @@ private:
 	class UClientLoginSubsystem* ClientLoginSubsystem;
 
 	UPROPERTY()
-	class ALobbyGameMode* LobbyGameMode;
+	class ALoginLobbyGameMode* LoginLobbyGameMode;
 
 };

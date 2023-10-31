@@ -1,9 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "TCP/ClientLogin/ClientLoginThread.h"
+#include "ClientLoginThread.h"
 #include "TCPStudy1.h"
-#include "ClientLogin/ClientLoginSubsystem.h"
+#include "ClientLoginSubsystem.h"
 
 FClientLoginThread::FClientLoginThread(UClientLoginSubsystem* NewClientLoginSubsystem)
 	: ClientLoginSubsystem(NewClientLoginSubsystem)

@@ -87,6 +87,6 @@ private:
 
 private:
 	UPROPERTY()
-	class ALobbyGameMode* LobbyGameMode;
+	class ALoginLobbyGameMode* LoginLobbyGameMode;
 
 };
