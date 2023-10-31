@@ -13,7 +13,6 @@ void UMainLobbyWidget::NativeConstruct()
 	Super::NativeConstruct();
 
 	Button_MatchMaking->OnClicked.AddDynamic(this, &UMainLobbyWidget::Button_MatchMaking_Clicked);
-
 	Button_QuitGame->OnClicked.AddDynamic(this, &UMainLobbyWidget::Button_QuitGame_Clicked);
 
 	UGameInstance* GI = GetGameInstance();
