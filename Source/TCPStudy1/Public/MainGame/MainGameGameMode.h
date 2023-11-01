@@ -7,7 +7,7 @@
 #include "MainGameGameMode.generated.h"
 
 /**
- * 
+ * ONLY RUN ON SERVER!!!!!!
  */
 UCLASS()
 class TCPSTUDY1_API AMainGameGameMode : public AGameModeBase
