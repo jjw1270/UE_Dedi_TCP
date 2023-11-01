@@ -34,6 +34,11 @@ enum class EPacket
 
 	C2S_ReqCancelMatchMaking								= 2010,
 
+	C2S_ReqDediTCPConnect									= 8000,
+
+	S2C_ReqDediTCPNewDedi									= 8100,
+
+
 	Max,
 };
 

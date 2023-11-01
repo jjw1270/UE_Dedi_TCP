@@ -2,12 +2,12 @@
 #include <fstream>
 #include <string>
 #include <process.h>
+#include <vector>
 
 using namespace std;
 
 #include "Packet.h"
 #include "PacketMaker.h"
-
 
 //--mysql
 #include "mysql_connection.h"
@@ -27,21 +27,6 @@ using namespace std;
 
 fd_set Reads;
 fd_set CopyReads;
-
-// Used for User Sign Up
-struct UserData
-{
-public:
-	UserData() {}
-	UserData(const string& NewUserID, const string& NewPassword)
-		: UserID(NewUserID), Password(NewPassword)
-	{
-	}
-
-	string UserID;
-	string Password;
-};
-map<unsigned short, UserData> TempUserList;
 
 bool GetConfigFromFile(string& OutServer, string& OutUserName, string& OutPassword)
 {
@@ -211,7 +196,6 @@ int main()
 		else
 		{
 			// when no changes on socket count while timeout
-			continue;
 		}
 	}
 
@@ -230,16 +214,15 @@ int main()
 // forward declare funcs
 void RecvError(SOCKET& ClientSocket);
 void SendError(SOCKET& ClientSocket);
-void ProcessPacket(SOCKET& ClientSocket, const unsigned short& UserNumber, const EPacket& PacketType, char*& Payload);
+void ProcessPacket(SOCKET& ClientSocket, const EPacket& PacketType, char*& Payload);
 
 const int HeaderSize = 4;
 
 unsigned WINAPI ServerThread(void* arg)
 {
 	SOCKET ClientSocket = *(SOCKET*)arg;
-	unsigned short UserNumber = (unsigned short)ClientSocket;
 
-	printf("[%d] Server Thread Started\n", UserNumber);
+	printf("[%d] Server Thread Started\n", (unsigned short)ClientSocket);
 
 	bool bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ConnectSuccess);
 	if (!bSendSuccess)
@@ -276,7 +259,7 @@ unsigned WINAPI ServerThread(void* arg)
 		// Recv Payload
 		if (PayloadSize > 0)
 		{
-			Payload = new char[PayloadSize+1];
+			Payload = new char[PayloadSize + 1];
 
 			RecvByte = recv(ClientSocket, Payload, PayloadSize, MSG_WAITALL);
 			if (RecvByte == 0 || RecvByte < 0)
@@ -289,7 +272,7 @@ unsigned WINAPI ServerThread(void* arg)
 			cout << "Data : " << Payload << endl;
 		}
 
-		ProcessPacket(ClientSocket, UserNumber, static_cast<EPacket>(PacketType), Payload);
+		ProcessPacket(ClientSocket, static_cast<EPacket>(PacketType), Payload);
 
 		delete[] Payload;
 		Payload = nullptr;
@@ -297,6 +280,28 @@ unsigned WINAPI ServerThread(void* arg)
 
 	return 0;
 }
+
+struct UserData
+{
+public:
+	UserData() {}
+	UserData(const string& NewUserID, const string& NewPassword)
+		: UserID(NewUserID), Password(NewPassword)
+	{
+	}
+
+	string UserID;
+	string Password;
+};
+
+// Used for User Sign Up
+map<unsigned short, UserData> TempUserList;
+
+// Dedi TCP Server
+SOCKET DediTCPServer{ INVALID_SOCKET };
+
+// On MatchMaking Users
+vector<SOCKET> OnMatchMakingUsers;
 
 void RecvError(SOCKET& ClientSocket)
 {
@@ -310,10 +315,23 @@ void RecvError(SOCKET& ClientSocket)
 	inet_ntop(AF_INET, &ClientSocketAddr.sin_addr.s_addr, IP, 1024);
 	cout << "disconnected : " << IP << endl;
 
-	if (TempUserList.count((unsigned short)ClientSocket) > 0)
+	/*Clean UP-----------------------------------------------------------------------------*/
+	const unsigned short ClientNumber = (unsigned short)ClientSocket;
+
+	if (TempUserList.count(ClientNumber > 0))
 	{
-		TempUserList.erase(TempUserList.find((unsigned short)ClientSocket));
+		TempUserList.erase(TempUserList.find(ClientNumber));
 	}
+
+	// Error on DediTCPServer
+	if (DediTCPServer == ClientSocket)
+	{
+		DediTCPServer = INVALID_SOCKET;
+	}
+
+	auto RemoveEnd = remove_if(OnMatchMakingUsers.begin(), OnMatchMakingUsers.end(), [ClientSocket](const SOCKET& OnMatchMakingUserSocket) { return ClientSocket == OnMatchMakingUserSocket; });
+	OnMatchMakingUsers.erase(RemoveEnd, OnMatchMakingUsers.end());
+	/*-------------------------------------------------------------------------------------*/
 
 	closesocket(ClientSocket);
 	FD_CLR(ClientSocket, &Reads);
@@ -342,44 +360,118 @@ void SendError(SOCKET& ClientSocket)
 	//CopyReads = Reads;
 }
 
-void ProcessPacket(SOCKET& ClientSocket, const unsigned short& UserNumber, const EPacket& PacketType, char*& Payload)
+void ProcessPacket(SOCKET& ClientSocket, const EPacket& PacketType, char*& Payload)
 {
+	const unsigned short UserNumber = (unsigned short)ClientSocket;
+
 	bool bSendSuccess = false;
 	sql::PreparedStatement* Sql_PreStatement = nullptr;
 	sql::ResultSet* Sql_Result = nullptr;
 
-	switch (PacketType)
+	// Packet for Dedi TCP Server
+	if (static_cast<int>(PacketType) >= 8000)
 	{
-	case EPacket::C2S_ReqSignIn:
-	{
-		char* ColonPtr = strchr(Payload, ':');
-		if (ColonPtr != nullptr)
+		switch (PacketType)
 		{
-			long long IDLen = ColonPtr - Payload;
+		case EPacket::C2S_ReqDediTCPConnect:
+		{
+			cout << "Connect with DediTCPServer" << endl;
+			DediTCPServer = ClientSocket;
+		}
+		break;
+		default:
+			break;
+		}
+	}
+	// Packet for User Client
+	else
+	{
+		switch (PacketType)
+		{
+		case EPacket::C2S_ReqSignIn:
+		{
+			char* ColonPtr = strchr(Payload, ':');
+			if (ColonPtr != nullptr)
+			{
+				long long IDLen = ColonPtr - Payload;
 
-			string UserID(Payload, IDLen);
-			string UserPwd(ColonPtr + 1);
+				string UserID(Payload, IDLen);
+				string UserPwd(ColonPtr + 1);
 
-			cout << "ID : " << UserID << " Pwd : " << UserPwd << endl;
+				cout << "ID : " << UserID << " Pwd : " << UserPwd << endl;
 
-			// Check ID Exist in DB UserConfig
-			string SqlQuery = "SELECT * FROM userconfig WHERE ID = ?";
-			Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
-			Sql_PreStatement->setString(1, UserID);
-			Sql_Result = Sql_PreStatement->executeQuery();
+				// Check ID Exist in DB UserConfig
+				string SqlQuery = "SELECT * FROM userconfig WHERE ID = ?";
+				Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
+				Sql_PreStatement->setString(1, UserID);
+				Sql_Result = Sql_PreStatement->executeQuery();
 
-			// If ID is valid
-			if (Sql_Result->next()) {
-				string dbPassword = Sql_Result->getString("Password");
+				// If ID is valid
+				if (Sql_Result->next()) {
+					string dbPassword = Sql_Result->getString("Password");
 
-				// If Password correct, Login Success!!
-				if (UserPwd == dbPassword)
+					// If Password correct, Login Success!!
+					if (UserPwd == dbPassword)
+					{
+						printf("[%d] Password Matched\n", UserNumber);
+
+						string UserNickName = MyUtility::Utf8ToMultibyte(Sql_Result->getString("NickName"));
+
+						bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignIn_Success, UserNickName.c_str());
+						if (!bSendSuccess)
+						{
+							SendError(ClientSocket);
+							break;
+						}
+					}
+					else
+					{
+						// If Password incorrect
+						bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignIn_Fail_InValidPassword);
+						if (!bSendSuccess)
+						{
+							SendError(ClientSocket);
+							break;
+						}
+					}
+				}
+				else
 				{
-					printf("[%d] Password Matched\n", UserNumber);
+					// else ID doesnt exist in db
+					cout << "ID Does Not Exist." << endl;
 
-					string UserNickName = MyUtility::Utf8ToMultibyte(Sql_Result->getString("NickName"));
+					bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignIn_Fail_InValidID);
+					if (!bSendSuccess)
+					{
+						SendError(ClientSocket);
+						break;
+					}
+				}
+			}
+		}
+		break;
+		case EPacket::C2S_ReqSignUpIDPwd:
+		{
+			char* ColonPtr = strchr(Payload, ':');
+			if (ColonPtr != nullptr)
+			{
+				long long IDLen = ColonPtr - Payload;
 
-					bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignIn_Success, UserNickName.c_str());
+				string NewUserID(Payload, IDLen);
+				string NewUserPwd(ColonPtr + 1);
+
+				cout << "New ID : " << NewUserID << " New Pwd : " << NewUserPwd << endl;
+
+				// Check ID Exist in DB UserConfig
+				string SqlQuery = "SELECT * FROM userconfig WHERE ID = ?";
+				Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
+				Sql_PreStatement->setString(1, NewUserID);
+				Sql_Result = Sql_PreStatement->executeQuery();
+
+				if (Sql_Result->rowsCount() > 0)
+				{
+					// If ID is exist, error
+					bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignUpIDPwd_Fail_ExistID);
 					if (!bSendSuccess)
 					{
 						SendError(ClientSocket);
@@ -388,8 +480,11 @@ void ProcessPacket(SOCKET& ClientSocket, const unsigned short& UserNumber, const
 				}
 				else
 				{
-					// If Password incorrect
-					bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignIn_Fail_InValidPassword);
+					//cout << "Make new Temp User" << endl;
+					UserData NewTempUser(NewUserID, NewUserPwd);
+					TempUserList.emplace(UserNumber, NewTempUser);
+
+					bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignUpIDPwd_Success);
 					if (!bSendSuccess)
 					{
 						SendError(ClientSocket);
@@ -397,43 +492,24 @@ void ProcessPacket(SOCKET& ClientSocket, const unsigned short& UserNumber, const
 					}
 				}
 			}
-			else
-			{
-				// else ID doesnt exist in db
-				cout << "ID Does Not Exist." << endl;
-
-				bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignIn_Fail_InValidID);
-				if (!bSendSuccess)
-				{
-					SendError(ClientSocket);
-					break;
-				}
-			}
 		}
-	}
 		break;
-	case EPacket::C2S_ReqSignUpIDPwd:
-	{
-		char* ColonPtr = strchr(Payload, ':');
-		if (ColonPtr != nullptr)
+		case EPacket::C2S_ReqSignUpNickName:
 		{
-			long long IDLen = ColonPtr - Payload;
+			string NewNickName(Payload);
 
-			string NewUserID(Payload, IDLen);
-			string NewUserPwd(ColonPtr + 1);
-
-			cout << "New ID : " << NewUserID << " New Pwd : " << NewUserPwd << endl;
+			cout << "New Nick Name : " << NewNickName << endl;
 
 			// Check ID Exist in DB UserConfig
-			string SqlQuery = "SELECT * FROM userconfig WHERE ID = ?";
+			string SqlQuery = "SELECT * FROM userconfig WHERE NickName = ?";
 			Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
-			Sql_PreStatement->setString(1, NewUserID);
+			Sql_PreStatement->setString(1, MyUtility::MultibyteToUtf8(NewNickName));
 			Sql_Result = Sql_PreStatement->executeQuery();
 
 			if (Sql_Result->rowsCount() > 0)
 			{
-				// If ID is exist, error
-				bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignUpIDPwd_Fail_ExistID);
+				// If NickName is exist, error
+				bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignUpNickName_Fail_ExistNickName);
 				if (!bSendSuccess)
 				{
 					SendError(ClientSocket);
@@ -442,11 +518,17 @@ void ProcessPacket(SOCKET& ClientSocket, const unsigned short& UserNumber, const
 			}
 			else
 			{
-				//cout << "Make new Temp User" << endl;
-				UserData NewTempUser(NewUserID, NewUserPwd);
-				TempUserList.emplace(UserNumber, NewTempUser);
+				// Create New Userconfig
+				SqlQuery = "INSERT INTO userconfig(ID, Password, NickName) VALUES(?,?,?)";
+				Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
+				Sql_PreStatement->setString(1, TempUserList[UserNumber].UserID);
+				Sql_PreStatement->setString(2, TempUserList[UserNumber].Password);
+				Sql_PreStatement->setString(3, MyUtility::MultibyteToUtf8(NewNickName));
+				Sql_PreStatement->execute();
 
-				bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignUpIDPwd_Success);
+				TempUserList.erase(UserNumber);
+
+				bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignUpNickName_Success);
 				if (!bSendSuccess)
 				{
 					SendError(ClientSocket);
@@ -454,99 +536,59 @@ void ProcessPacket(SOCKET& ClientSocket, const unsigned short& UserNumber, const
 				}
 			}
 		}
-	}
-	break;
-	case EPacket::C2S_ReqSignUpNickName:
-	{
-		string NewNickName(Payload);
-
-		cout << "New Nick Name : " << NewNickName << endl;
-
-		// Check ID Exist in DB UserConfig
-		string SqlQuery = "SELECT * FROM userconfig WHERE NickName = ?";
-		Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
-		Sql_PreStatement->setString(1, MyUtility::MultibyteToUtf8(NewNickName));
-		Sql_Result = Sql_PreStatement->executeQuery();
-
-		if (Sql_Result->rowsCount() > 0)
-		{
-			// If NickName is exist, error
-			bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignUpNickName_Fail_ExistNickName);
-			if (!bSendSuccess)
-			{
-				SendError(ClientSocket);
-				break;
-			}
-		}
-		else
-		{
-			// Create New Userconfig
-			SqlQuery = "INSERT INTO userconfig(ID, Password, NickName) VALUES(?,?,?)";
-			Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
-			Sql_PreStatement->setString(1, TempUserList[UserNumber].UserID);
-			Sql_PreStatement->setString(2, TempUserList[UserNumber].Password);
-			Sql_PreStatement->setString(3, MyUtility::MultibyteToUtf8(NewNickName));
-			Sql_PreStatement->execute();
-
-			TempUserList.erase(UserNumber);
-
-			bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignUpNickName_Success);
-			if (!bSendSuccess)
-			{
-				SendError(ClientSocket);
-				break;
-			}
-		}
-	}
-	break;
-	case EPacket::C2S_ReqMatchMaking:
-	{
-		// Find Available Dedi Server from DB
-		//	if true, send available Dedi Server IP
-		//	else, Play Dedi Server
-
-		string SqlQuery = "SELECT * FROM dediserverlist";
-		Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
-		Sql_Result = Sql_PreStatement->executeQuery();
-
-		bool bFindAvailableDediServer = false;
-		while (Sql_Result->next())
-		{
-			// Check CanJoin
-			if (Sql_Result->getBoolean(4))
-			{
-				bFindAvailableDediServer = true;
-
-				string DediServerIP = Sql_Result->getString(2);
-				bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResMatchMaking_DediIP, DediServerIP.c_str());
-				if (!bSendSuccess)
-				{
-					SendError(ClientSocket);
-					break;
-				}
-
-				break;
-			}
-		}
-
-		if (!bFindAvailableDediServer)
-		{
-			cout << "Run Dedi Server.. ";
-			auto a = system("F:\\UnrealProjects\\AMyProject\\TCPStudy1\\Package\\Windows\\TCPStudy1\\Binaries\\Win64\\TCPStudy1ServerWithLog.exe.lnk");
-			cout << a << endl;
-		}
-	}
-	break;
-	case EPacket::C2S_ReqCancelMatchMaking:
-	{
-
-	}
-	break;
-	default:
 		break;
+		case EPacket::C2S_ReqMatchMaking:
+		{
+			// Find Available Dedi Server from DB
+			//	if true, send available Dedi Server IP
+			//	else, Play Dedi Server
+
+			string SqlQuery = "SELECT * FROM dediserverlist";
+			Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
+			Sql_Result = Sql_PreStatement->executeQuery();
+
+			bool bFindAvailableDediServer = false;
+			while (Sql_Result->next())
+			{
+				// Check CanJoin
+				if (Sql_Result->getBoolean(4))
+				{
+					bFindAvailableDediServer = true;
+					break;
+				}
+			}
+
+			if (!bFindAvailableDediServer)
+			{
+				cout << "Request New Dedi Server.. " << endl;
+				bSendSuccess = PacketMaker::SendPacket(&DediTCPServer, EPacket::S2C_ReqDediTCPNewDedi);
+				if (!bSendSuccess)
+				{
+					SendError(ClientSocket);
+					break;
+				}
+
+				//Run in Dedi TCP
+				//cout << "Run Dedi Server.. ";
+				//auto a = system("F:\\UnrealProjects\\AMyProject\\TCPStudy1\\Package\\Windows\\TCPStudy1\\Binaries\\Win64\\TCPStudy1ServerWithLog.exe.lnk");
+				//cout << ((a == 0) ? "Success" : "Failure") << endl;
+			}
+
+			// Add this user to wait MatchMaking List
+			OnMatchMakingUsers.push_back(ClientSocket);
+		}
+		break;
+		case EPacket::C2S_ReqCancelMatchMaking:
+		{
+			auto RemoveEnd = remove_if(OnMatchMakingUsers.begin(), OnMatchMakingUsers.end(), [ClientSocket](const SOCKET& OnMatchMakingUserSocket) { return ClientSocket == OnMatchMakingUserSocket; });
+			OnMatchMakingUsers.erase(RemoveEnd, OnMatchMakingUsers.end());
+		}
+		break;
+		default:
+			break;
+		}
 	}
 
-EndCase:
 	delete Sql_Result;
 	delete Sql_PreStatement;
 }
