@@ -15,12 +15,18 @@ enum class EPacket
 
 	S2C_ConnectSuccess										= 100,
 
-	S2C_ConnectDediSuccess									= 3000,
+	///////////////////////////////////////////////////////////////////////////
 
-	C2S_ReqDediTCPConnect									= 8000,
+	C2S_ReqDediTCPConnect									= 3000,
 
-	S2C_ReqAvailableDediServer								= 8100,
-	C2S_ResAvailableDediServer								= 8101,
+	S2C_ReqAvailableDediServer								= 3100,
+	C2S_ResAvailableDediServer								= 3101,
+
+	///////////////////////////////////////////////////////////////////////////
+
+
+
+	///////////////////////////////////////////////////////////////////////////
 
 	Max,
 };

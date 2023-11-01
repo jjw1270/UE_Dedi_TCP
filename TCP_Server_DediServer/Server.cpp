@@ -325,7 +325,7 @@ unsigned WINAPI ServerThread(void* arg)
 
 	printf("[%d] Server Thread Started\n", (unsigned short)ClientSocket);
 
-	bool bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ConnectDediSuccess);
+	bool bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ConnectSuccess);
 	if (!bSendSuccess)
 	{
 		SendError(ClientSocket);
