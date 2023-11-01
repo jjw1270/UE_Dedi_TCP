@@ -20,6 +20,8 @@ public class TCPStudy1 : ModuleRules
                 Path.Combine(ModuleDirectory, "Public/TCP"),
                 Path.Combine(ModuleDirectory, "Public/LoginLobby"),
                 Path.Combine(ModuleDirectory, "Public/MainLobby"),
+                Path.Combine(ModuleDirectory, "Public/MainGame"),
+                Path.Combine(ModuleDirectory, "Public/Transition"),
 
             }
         );
