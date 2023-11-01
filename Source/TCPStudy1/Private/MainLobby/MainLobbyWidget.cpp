@@ -5,6 +5,7 @@
 #include "TCPStudy1.h"
 #include "ClientLoginSubsystem.h"
 
+#include "Components/Border.h"
 #include "Components/TextBlock.h"
 #include "Components/Button.h"
 
@@ -14,14 +15,13 @@ void UMainLobbyWidget::NativeConstruct()
 
 	Button_MatchMaking->OnClicked.AddDynamic(this, &UMainLobbyWidget::Button_MatchMaking_Clicked);
 	Button_QuitGame->OnClicked.AddDynamic(this, &UMainLobbyWidget::Button_QuitGame_Clicked);
+	Button_CancelMatchMaking->OnClicked.AddDynamic(this, &UMainLobbyWidget::Button_CancelMatchMaking_Clicked);
 
 	UGameInstance* GI = GetGameInstance();
 	CHECK_VALID(GI);
-
 	ClientLoginSubsystem = GI->GetSubsystem<UClientLoginSubsystem>();
 	CHECK_VALID(ClientLoginSubsystem);
-
-	ClientLoginSubsystem->RecvPacketDelegate.AddUFunction(this, FName("OnRecvPacketDelegate"));
+	RecvPacketDelegateHandle = ClientLoginSubsystem->RecvPacketDelegate.AddUFunction(this, FName("OnRecvPacketDelegate"));
 
 	FString UserNickNameText = FString::Printf(TEXT("%s 님"), *ClientLoginSubsystem->GetUserNickName());
 	TextBlock_UserNickName->SetText(FText::FromString(UserNickNameText));
@@ -29,9 +29,14 @@ void UMainLobbyWidget::NativeConstruct()
 
 void UMainLobbyWidget::NativeDestruct()
 {
-	if (ClientLoginSubsystem)
+	if (ClientLoginSubsystem && RecvPacketDelegateHandle.IsValid())
 	{
-		ClientLoginSubsystem->RecvPacketDelegate.Clear();
+		ClientLoginSubsystem->RecvPacketDelegate.Remove(RecvPacketDelegateHandle);
+	}
+
+	if (MatchMakingTimerHandle.IsValid())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(MatchMakingTimerHandle);
 	}
 
 	Super::NativeDestruct();
@@ -49,6 +54,14 @@ void UMainLobbyWidget::OnRecvPacketDelegate(const FString& InfoMessage, const in
 	//}
 }
 
+void UMainLobbyWidget::MatchMakingTimer()
+{
+	Timer++;
+
+	FString TimerFormat = FString::Printf(TEXT("%02d : %02d"), Timer / 60, Timer % 60);
+	TextBlock_Timer->SetText(FText::FromString(TimerFormat));
+}
+
 void UMainLobbyWidget::Button_MatchMaking_Clicked()
 {
 	FLoginPacketData PacketData(ELoginPacket::C2S_ReqMatchMaking);
@@ -58,7 +71,24 @@ void UMainLobbyWidget::Button_MatchMaking_Clicked()
 		ABLOG(Error, TEXT("Send Error"));
 	}
 
-	// Start Match Making Timer Widget
+	// Start Match Making Timer
+	Border_MatchMaking->SetVisibility(ESlateVisibility::Visible);
+	GetWorld()->GetTimerManager().SetTimer(MatchMakingTimerHandle, this, &UMainLobbyWidget::MatchMakingTimer, 1.f, true);
+}
+
+void UMainLobbyWidget::Button_CancelMatchMaking_Clicked()
+{
+	FLoginPacketData PacketData(ELoginPacket::C2S_ReqCancelMatchMaking);
+	bool bSend = ClientLoginSubsystem->Send(PacketData);
+	if (!bSend)
+	{
+		ABLOG(Error, TEXT("Send Error"));
+	}
+
+	GetWorld()->GetTimerManager().ClearTimer(MatchMakingTimerHandle);
+	Border_MatchMaking->SetVisibility(ESlateVisibility::Collapsed);
+	Timer = 0;
+	TextBlock_Timer->SetText(FText::FromString(TEXT("00 : 00")));
 }
 
 void UMainLobbyWidget::Button_QuitGame_Clicked()

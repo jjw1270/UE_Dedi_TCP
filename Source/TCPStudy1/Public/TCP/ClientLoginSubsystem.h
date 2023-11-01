@@ -39,6 +39,8 @@ enum class ELoginPacket
 	C2S_ReqMatchMaking										= 2000,
 	S2C_ResMatchMaking_DediIP								= 2001,
 
+	C2S_ReqCancelMatchMaking								= 2010,
+
 	Max,
 };
 

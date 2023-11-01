@@ -501,15 +501,80 @@ void ProcessPacket(SOCKET& ClientSocket, const unsigned short& UserNumber, const
 	break;
 	case EPacket::C2S_ReqMatchMaking:
 	{
-		// find Available Dedi Server from DB
-		// if true, send available Dedi Server IP
-		// else, Play Dedi Server
+		// Find Available Dedi Server from DB
+		//	if true, send available Dedi Server IP
+		//	else, Play Dedi Server
+
+		string SqlQuery = "SELECT * FROM dediserverlist";
+		Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
+		Sql_Result = Sql_PreStatement->executeQuery();
+
+		bool bFindAvailableDediServer = false;
+		while (Sql_Result->next())
+		{
+			// Check CanJoin
+			if (Sql_Result->getBoolean(4))
+			{
+				bFindAvailableDediServer = true;
+
+				string DediServerIP = Sql_Result->getString(2);
+				bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResMatchMaking_DediIP, DediServerIP.c_str());
+				if (!bSendSuccess)
+				{
+					SendError(ClientSocket);
+					break;
+				}
+
+				break;
+			}
+		}
+
+		if (!bFindAvailableDediServer)
+		{
+			//system("F:\\UnrealProjects\\AMyProject\\TCPStudy1\\TCP_Server_ClientLogin\\TCPStudy1ServerWithLog.exe");
+			//system("TCPStudy1ServerWithLog.exe");
+
+			_execl("F:\\UnrealProjects\\AMyProject\\TCPStudy1\\Package\\Windows\\TCPStudy1\\Binaries\\Win64\\TCPStudy1Server.exe", " -log");
+
+			//// 실행할 프로그램 경로와 명령 라인 인수 설정
+			//const TCHAR* ProgramPath = TEXT("TCPStudy1Server.exe");
+			//const TCHAR* CommandLineArgs = TEXT(" -log");
+
+			//// 프로세스 정보 구조체 초기화
+			//STARTUPINFO StartupInfo = { sizeof(STARTUPINFO) };
+			//PROCESS_INFORMATION ProcessInfo;
+
+			//// CreateProcess 함수로 외부 프로그램 실행
+			//if (CreateProcess(ProgramPath, (LPWSTR)*CommandLineArgs, nullptr, nullptr, FALSE, 0, nullptr, nullptr, &StartupInfo, &ProcessInfo))
+			//{
+			//	// 프로세스가 성공적으로 시작됨
+			//	cout << "프로세스가 시작되었습니다." << endl;
+
+			//	// 프로세스 종료 대기
+			//	WaitForSingleObject(ProcessInfo.hProcess, INFINITE);
+
+			//	// 프로세스 정보 해제
+			//	CloseHandle(ProcessInfo.hProcess);
+			//	CloseHandle(ProcessInfo.hThread);
+			//}
+			//else {
+			//	// 프로세스 시작 실패
+			//	cerr << "프로세스 시작 실패" << endl;
+			//	return 1;
+			//}
+		}
+	}
+	break;
+	case EPacket::C2S_ReqCancelMatchMaking:
+	{
+
 	}
 	break;
 	default:
 		break;
 	}
 
+EndCase:
 	delete Sql_Result;
 	delete Sql_PreStatement;
 }

@@ -15,11 +15,6 @@ void ULoginLobbyWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	ClientLoginSubsystem = GetGameInstance()->GetSubsystem<UClientLoginSubsystem>();
-	CHECK_VALID(ClientLoginSubsystem);
-
-	ClientLoginSubsystem->RecvPacketDelegate.AddUFunction(this, FName("OnRecvPacketDelegate"));
-
 	Button_SignIn->OnClicked.AddDynamic(this, &ULoginLobbyWidget::Button_SignIn_Clicked);
 	Button_SignUp->OnClicked.AddDynamic(this, &ULoginLobbyWidget::Button_SignUp_Clicked);
 	Button_QuitGame->OnClicked.AddDynamic(this, &ULoginLobbyWidget::Button_QuitGame_Clicked);
@@ -28,14 +23,20 @@ void ULoginLobbyWidget::NativeConstruct()
 	Button_CheckNickName->OnClicked.AddDynamic(this, &ULoginLobbyWidget::Button_CheckNickName_Clicked);
 	Button_CancelSignUpNickName->OnClicked.AddDynamic(this, &ULoginLobbyWidget::Button_CancelSignUpNickName_Clicked);
 
+	UGameInstance* GI = GetGameInstance();
+	CHECK_VALID(GI);
+	ClientLoginSubsystem = GI->GetSubsystem<UClientLoginSubsystem>();
+	CHECK_VALID(ClientLoginSubsystem);
+	RecvPacketDelegateHandle = ClientLoginSubsystem->RecvPacketDelegate.AddUFunction(this, FName("OnRecvPacketDelegate"));
+
 	EnableInputs(false);
 }
 
 void ULoginLobbyWidget::NativeDestruct()
 {
-	if (ClientLoginSubsystem)
+	if (ClientLoginSubsystem && RecvPacketDelegateHandle.IsValid())
 	{
-		ClientLoginSubsystem->RecvPacketDelegate.Clear();
+		ClientLoginSubsystem->RecvPacketDelegate.Remove(RecvPacketDelegateHandle);
 	}
 
 	Super::NativeDestruct();

@@ -73,6 +73,8 @@ protected:
 	UButton* Button_CancelSignUpNickName;
 
 private:
+	FDelegateHandle RecvPacketDelegateHandle;
+
 	UFUNCTION()
 	void OnRecvPacketDelegate(const FString& InfoMessage, const int32& PacketCode, bool bSuccess);
 
