@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "ClientLoginSubsystem.h"
+#include "DediServerSubsystem.h"
 /* Custom Includes Here--------------------------------*/
 #include "TCPStudy1.h"
 /*-----------------------------------------------------*/
@@ -10,20 +10,19 @@
 #include "SocketSubsystem.h"
 #include "Interfaces/IPv4/IPv4Address.h"
 #include "IPAddress.h"
-//#include "terse/utils/Endianness.h"
 
-UClientLoginSubsystem::UClientLoginSubsystem()
+UDediServerSubsystem::UDediServerSubsystem()
 {
 }
 
-void UClientLoginSubsystem::Initialize(FSubsystemCollectionBase& Collection)
+void UDediServerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
-	ABLOG(Warning, TEXT("Initialize ClientLoginSubsystem"));
+	ABLOG(Warning, TEXT("Initialize DediServerSubsystem"));
 }
 
-void UClientLoginSubsystem::Deinitialize()
+void UDediServerSubsystem::Deinitialize()
 {
-	ABLOG(Warning, TEXT("Deinitialize ClientLoginSubsystem"));
+	ABLOG(Warning, TEXT("Deinitialize DediServerSubsystem"));
 
 	if (IsConnect())
 	{
@@ -31,9 +30,9 @@ void UClientLoginSubsystem::Deinitialize()
 	}
 }
 
-bool UClientLoginSubsystem::Connect(const int32& PortNum, const FString& IP)
+bool UDediServerSubsystem::Connect(const int32& PortNum, const FString& IP)
 {
-	Socket = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateSocket(NAME_Stream, TEXT("TCPClientLoginSocket"), false);
+	Socket = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateSocket(NAME_Stream, TEXT("TCPDediServerSocket"), false);
 	if (!Socket)
 	{
 		ABLOG(Error, TEXT("CreateSocket Failure"));
@@ -64,49 +63,49 @@ bool UClientLoginSubsystem::Connect(const int32& PortNum, const FString& IP)
 	}
 }
 
-void UClientLoginSubsystem::ConnectToLoginServer()
+void UDediServerSubsystem::ConnectToTCPDediServer()
 {
 	UWorld* World = GetWorld();
 	CHECK_VALID(World);
 
-	bool bConnect = Connect(8881, TEXT("127.0.0.1"));
+	bool bConnect = Connect(11233, TEXT("127.0.0.1"));
 	if (!bConnect)
 	{
 		if (RecvPacketDelegate.IsBound())
 		{
-			RecvPacketDelegate.Broadcast(TEXT("로그인 서버 접속 실패"), 0, false);
+			RecvPacketDelegate.Broadcast(TEXT("데디 TCP 서버 접속 실패"), 0);
 		}
 
 		// Reconnect to login server
 		FTimerHandle ReconnectLoginServerHandle;
-		World->GetTimerManager().SetTimer(ReconnectLoginServerHandle, this, &UClientLoginSubsystem::ConnectToLoginServer, 5.f, false);
+		World->GetTimerManager().SetTimer(ReconnectLoginServerHandle, this, &UDediServerSubsystem::ConnectToTCPDediServer, 5.f, false);
 	}
 	else
 	{
-		World->GetTimerManager().SetTimer(ManageRecvPacketHandle, this, &UClientLoginSubsystem::ManageRecvPacket, 0.1f, true);
+		World->GetTimerManager().SetTimer(ManageRecvPacketHandle, this, &UDediServerSubsystem::ManageRecvPacket, 0.1f, true);
 
 		// Start Client Login Thread
-		ClientLoginThread = new FClientLoginThread(this);
-		ClientLoginThreadHandle = FRunnableThread::Create(ClientLoginThread, TEXT("ClientLoginThread"));
+		DediServerThread = new FDediServerThread(this);
+		DediServerThreadHandle = FRunnableThread::Create(DediServerThread, TEXT("DediServerThread"));
 	}
 }
 
-void UClientLoginSubsystem::DestroySocket()
-{
+void UDediServerSubsystem::DestroySocket()
+{	
 	// Clean Thread
-	if (ClientLoginThread)
+	if (DediServerThread)
 	{
-		ClientLoginThread->StopThread();
+		DediServerThread->StopThread();
 
-		if (ClientLoginThreadHandle)
+		if (DediServerThreadHandle)
 		{
-			ClientLoginThreadHandle->WaitForCompletion();
-			delete ClientLoginThreadHandle;
-			ClientLoginThreadHandle = nullptr;
+			DediServerThreadHandle->WaitForCompletion();
+			delete DediServerThreadHandle;
+			DediServerThreadHandle = nullptr;
 		}
 
-		delete ClientLoginThread;
-		ClientLoginThread = nullptr;
+		delete DediServerThread;
+		DediServerThread = nullptr;
 
 		ABLOG(Warning, TEXT("CleanUp Thread"));
 	}
@@ -128,63 +127,7 @@ void UClientLoginSubsystem::DestroySocket()
 	}
 }
 
-void UClientLoginSubsystem::PrintSocketError(const FString& Text)
-{
-	ESocketErrors SocketErrorCode = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetLastErrorCode();
-	const TCHAR* SocketError = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetSocketError(SocketErrorCode);
-
-	UE_LOG(LogSockets, Error, TEXT("[%s]  SocketError : %s"), *Text, SocketError);
-}
-
-void UClientLoginSubsystem::ManageRecvPacket()
-{
-	if (!ClientLoginThreadHandle)
-	{
-		GetWorld()->GetTimerManager().ClearTimer(ManageRecvPacketHandle);
-		return;
-	}
-
-	if (RecvPacketDelegate.IsBound())
-	{
-		int32 PacketCode = static_cast<int32>(RecvPacketData.PacketType);
-
-		switch (RecvPacketData.PacketType)
-		{
-		case ELoginPacket::S2C_ConnectSuccess:
-			RecvPacketDelegate.Broadcast(TEXT("로그인 서버 접속 성공"), PacketCode, true);
-			break;
-		case ELoginPacket::S2C_ResSignIn_Fail_InValidID:
-			SetIDPwd("");
-			RecvPacketDelegate.Broadcast(TEXT("등록되지 않은 아이디 입니다"), PacketCode, false);
-			break;
-		case ELoginPacket::S2C_ResSignIn_Fail_InValidPassword:
-			RecvPacketDelegate.Broadcast(TEXT("비밀번호가 일치하지 않습니다"), PacketCode, false);
-			break;
-		case ELoginPacket::S2C_ResSignIn_Success:
-			SetUserNickName(RecvPacketData.Payload);
-			RecvPacketDelegate.Broadcast(FString::Printf(TEXT("환영합니다 %s 님!"), *RecvPacketData.Payload), PacketCode, true);
-			break;
-		case ELoginPacket::S2C_ResSignUpIDPwd_Success:
-			RecvPacketDelegate.Broadcast(TEXT("새로운 닉네임을 입력하세요"), PacketCode, true);
-			break;
-		case ELoginPacket::S2C_ResSignUpIDPwd_Fail_ExistID:
-			RecvPacketDelegate.Broadcast(TEXT("아이디가 이미 존재합니다"), PacketCode, false);
-			break;
-		case ELoginPacket::S2C_ResSignUpNickName_Success:
-			RecvPacketDelegate.Broadcast(TEXT("등록되었습니다!"), PacketCode, true);
-			break;
-		case ELoginPacket::S2C_ResSignUpNickName_Fail_ExistNickName:
-			RecvPacketDelegate.Broadcast(TEXT("닉네임이 이미 존재합니다"), PacketCode, false);
-			break;
-		default:
-			break;
-		}
-	}
-
-	RecvPacketData = FLoginPacketData();
-}
-
-bool UClientLoginSubsystem::Recv(FLoginPacketData& OutRecvPacket)
+bool UDediServerSubsystem::Recv(FDediPacketData& OutRecvPacket)
 {
 	if (!Socket)
 	{
@@ -217,7 +160,7 @@ bool UClientLoginSubsystem::Recv(FLoginPacketData& OutRecvPacket)
 		//RecvPayloadSize = ntoh(RecvPayloadSize);
 		//RecvPacketType = ntoh(RecvPacketType);
 
-		OutRecvPacket.PacketType = static_cast<ELoginPacket>(RecvPacketType);
+		OutRecvPacket.PacketType = static_cast<EDediPacket>(RecvPacketType);
 
 		// Recv Payload
 		if (RecvPayloadSize > 0)
@@ -249,7 +192,7 @@ bool UClientLoginSubsystem::Recv(FLoginPacketData& OutRecvPacket)
 	return true;
 }
 
-bool UClientLoginSubsystem::Send(const FLoginPacketData& SendPacket)
+bool UDediServerSubsystem::Send(const FDediPacketData& SendPacket)
 {
 	if (!Socket)
 	{
@@ -300,7 +243,7 @@ bool UClientLoginSubsystem::Send(const FLoginPacketData& SendPacket)
 	return true;
 }
 
-bool UClientLoginSubsystem::IsConnect()
+bool UDediServerSubsystem::IsConnect()
 {
 	if (Socket && (Socket->GetConnectionState() == ESocketConnectionState::SCS_Connected))
 	{
@@ -310,34 +253,67 @@ bool UClientLoginSubsystem::IsConnect()
 	return false;
 }
 
-FClientLoginThread::FClientLoginThread(UClientLoginSubsystem* NewClientLoginSubsystem)
-	: ClientLoginSubsystem(NewClientLoginSubsystem)
+void UDediServerSubsystem::PrintSocketError(const FString& Text)
+{
+	ESocketErrors SocketErrorCode = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetLastErrorCode();
+	const TCHAR* SocketError = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetSocketError(SocketErrorCode);
+
+	UE_LOG(LogSockets, Error, TEXT("[%s]  SocketError : %s"), *Text, SocketError);
+}
+
+void UDediServerSubsystem::ManageRecvPacket()
+{
+	if (!DediServerThreadHandle)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(ManageRecvPacketHandle);
+		return;
+	}
+
+	if (RecvPacketDelegate.IsBound())
+	{
+		int32 PacketCode = static_cast<int32>(RecvPacketData.PacketType);
+
+		switch (RecvPacketData.PacketType)
+		{
+		case EDediPacket::S2C_ConnectSuccess:
+			RecvPacketDelegate.Broadcast(TEXT("데디 TCP 서버 접속 성공"), PacketCode);
+			break;
+		default:
+			break;
+		}
+	}
+
+	RecvPacketData = FDediPacketData();
+}
+
+FDediServerThread::FDediServerThread(UDediServerSubsystem* NewDediServerSubsystem)
+	: DediServerSubsystem(NewDediServerSubsystem)
 {
 	bStopThread = false;
 }
 
-uint32 FClientLoginThread::Run()
+uint32 FDediServerThread::Run()
 {
 	while (!bStopThread)
 	{
-		FLoginPacketData PacketData;
-		bool RecvByte = ClientLoginSubsystem->Recv(PacketData);
+		FDediPacketData PacketData;
+		bool RecvByte = DediServerSubsystem->Recv(PacketData);
 		if (!RecvByte)
 		{
 			ABLOG(Error, TEXT("Recv Error, Stop Thread"));
 			break;
 		}
 
-		if (PacketData.PacketType != ELoginPacket::None)
+		if (PacketData.PacketType != EDediPacket::None)
 		{
-			ClientLoginSubsystem->SetRecvPacket(PacketData);
+			DediServerSubsystem->SetRecvPacket(PacketData);
 		}
 	}
 
 	return 0;
 }
 
-void FClientLoginThread::StopThread()
+void FDediServerThread::StopThread()
 {
 	bStopThread = true;
 }

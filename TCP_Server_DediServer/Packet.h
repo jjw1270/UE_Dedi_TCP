@@ -19,7 +19,8 @@ enum class EPacket
 
 	C2S_ReqDediTCPConnect									= 8000,
 
-	S2C_ReqDediTCPNewDedi									= 8100,
+	S2C_ReqAvailableDediServer								= 8100,
+	C2S_ResAvailableDediServer								= 8101,
 
 	Max,
 };

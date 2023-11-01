@@ -14,4 +14,7 @@ class TCPSTUDY1_API AMainGameGameMode : public AGameModeBase
 {
 	GENERATED_BODY()
 	
+protected:
+	virtual void StartPlay() override;
+
 };

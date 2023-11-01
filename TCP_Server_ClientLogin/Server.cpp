@@ -519,39 +519,12 @@ void ProcessPacket(SOCKET& ClientSocket, const EPacket& PacketType, char*& Paylo
 		break;
 		case EPacket::C2S_ReqMatchMaking:
 		{
-			// Find Available Dedi Server from DB
-			//	if true, send available Dedi Server IP
-			//	else, Play Dedi Server
-
-			string SqlQuery = "SELECT * FROM dediserverlist";
-			Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
-			Sql_Result = Sql_PreStatement->executeQuery();
-
-			bool bFindAvailableDediServer = false;
-			while (Sql_Result->next())
+			// to Dedi TCP Server -> Req available Dedi Server
+			bSendSuccess = PacketMaker::SendPacket(&DediTCPServer, EPacket::S2C_ReqAvailableDediServer);
+			if (!bSendSuccess)
 			{
-				// Check CanJoin
-				if (Sql_Result->getBoolean(4))
-				{
-					bFindAvailableDediServer = true;
-					break;
-				}
-			}
-
-			if (!bFindAvailableDediServer)
-			{
-				cout << "Request New Dedi Server.. " << endl;
-				bSendSuccess = PacketMaker::SendPacket(&DediTCPServer, EPacket::S2C_ReqDediTCPNewDedi);
-				if (!bSendSuccess)
-				{
-					SendError(ClientSocket);
-					break;
-				}
-
-				//Run in Dedi TCP
-				//cout << "Run Dedi Server.. ";
-				//auto a = system("F:\\UnrealProjects\\AMyProject\\TCPStudy1\\Package\\Windows\\TCPStudy1\\Binaries\\Win64\\TCPStudy1ServerWithLog.exe.lnk");
-				//cout << ((a == 0) ? "Success" : "Failure") << endl;
+				SendError(DediTCPServer);
+				break;
 			}
 
 			// Add this user to wait MatchMaking List

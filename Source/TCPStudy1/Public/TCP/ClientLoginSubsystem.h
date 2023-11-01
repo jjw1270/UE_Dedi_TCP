@@ -36,10 +36,10 @@ enum class ELoginPacket
 	S2C_ResSignUpNickName_Success							= 1021,
 	S2C_ResSignUpNickName_Fail_ExistNickName				= 1022,
 
-	C2S_ReqMatchMaking										= 2000,
-	S2C_ResMatchMaking_DediIP								= 2001,
+	C2S_ReqMatchMaking										= 1100,
+	S2C_ResMatchMaking_DediIP								= 1101,
 
-	C2S_ReqCancelMatchMaking								= 2010,
+	C2S_ReqCancelMatchMaking								= 1110,
 
 	Max,
 };

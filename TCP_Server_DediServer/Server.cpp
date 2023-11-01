@@ -2,7 +2,6 @@
 #include <fstream>
 #include <string>
 #include <process.h>
-#include <set>
 
 using namespace std;
 
@@ -262,7 +261,7 @@ int main()
 // forward declare funcs
 void RecvError(SOCKET& ClientSocket);
 void SendError(SOCKET& ClientSocket);
-void ProcessPacket(SOCKET& ClientSocket, const EPacket& PacketType, char*& Payload);
+void ProcessPacket(SOCKET& TargetSocket, const EPacket& PacketType, char*& Payload);
 
 const int HeaderSize = 4;
 
@@ -272,13 +271,6 @@ unsigned WINAPI LoginServerThread(void* arg)
 	SOCKET ServerSocket = *(SOCKET*)arg;
 
 	printf("[%d] LoginServer Thread Started\n", (unsigned short)ServerSocket);
-
-	bool bSendSuccess = PacketMaker::SendPacket(&ServerSocket, EPacket::C2S_ReqDediTCPConnect);
-	if (!bSendSuccess)
-	{
-		SendError(ServerSocket);
-		return 0;
-	}
 
 	while (true)
 	{
@@ -386,6 +378,27 @@ unsigned WINAPI ServerThread(void* arg)
 	return 0;
 }
 
+const int MaxPlayerInDediServer = 2;
+
+struct DediServerInfo
+{
+public:
+	DediServerInfo() : IP(), bCanJoin(true) {}
+	DediServerInfo(const string& NewIP)
+		: IP(NewIP), bCanJoin(true)
+	{
+	}
+
+	string IP;
+	//int CurrentPlayer[MaxPlayerInDediServer] = { 0, };
+	bool bCanJoin = false;
+};
+
+// Used for Manage Dedicate Server
+map<SOCKET, DediServerInfo> DediServers;
+
+SOCKET LoginTCPServer{ INVALID_SOCKET };
+
 void RecvError(SOCKET& ClientSocket)
 {
 	cout << "Server Recv Error : " << GetLastError() << endl;
@@ -412,32 +425,56 @@ void SendError(SOCKET& ClientSocket)
 	cout << "Server Send Error : " << GetLastError() << endl;
 }
 
-// Used for Manage Dedicate Server
-set<unsigned short> DediServers;
-
-SOCKET LoginTCPServer{ INVALID_SOCKET };
-
-void ProcessPacket(SOCKET& ClientSocket, const EPacket& PacketType, char*& Payload)
+void ProcessPacket(SOCKET& TargetSocket, const EPacket& PacketType, char*& Payload)
 {
-	const unsigned short UserNumber = (unsigned short)ClientSocket;
+	const unsigned short UserNumber = (unsigned short)TargetSocket;
 
 	bool bSendSuccess = false;
 	sql::PreparedStatement* Sql_PreStatement = nullptr;
 	sql::ResultSet* Sql_Result = nullptr;
 
 	// Packet for Login TCP Server
-	if (PacketType >= EPacket::C2S_ReqDediTCPConnect)
+	if (PacketType >= EPacket::C2S_ReqDediTCPConnect || PacketType == EPacket::S2C_ConnectSuccess)
 	{
 		switch (PacketType)
 		{
 		case EPacket::S2C_ConnectSuccess:
 		{
-			
+			bSendSuccess = PacketMaker::SendPacket(&TargetSocket, EPacket::C2S_ReqDediTCPConnect);
+			if (!bSendSuccess)
+			{
+				SendError(TargetSocket);
+				break;
+			}
 		}
 		break;
-		case EPacket::S2C_ReqDediTCPNewDedi:
+		case EPacket::S2C_ReqAvailableDediServer:
 		{
+			bool bHasAvailableDediServer = false;
+			for (const auto& DediServer : DediServers)
+			{
+				if (DediServer.second.bCanJoin)
+				{
+					bHasAvailableDediServer = true;
 
+					bSendSuccess = PacketMaker::SendPacket(&TargetSocket, EPacket::C2S_ResAvailableDediServer, DediServer.second.IP.c_str());
+					if (!bSendSuccess)
+					{
+						SendError(TargetSocket);
+						break;
+					}
+
+					break;
+				}
+			}
+
+			if (!bHasAvailableDediServer)
+			{
+				//Run in Dedi TCP
+				cout << "Run Dedi Server.. ";
+				int bRunSuccess = system("F:\\UnrealProjects\\AMyProject\\TCPStudy1\\Package\\Windows\\TCPStudy1\\Binaries\\Win64\\TCPStudy1ServerWithLog.exe.lnk");
+				cout << ((bRunSuccess == 0) ? "Success" : "Failure") << endl;
+			}
 		}
 		break;
 		default:
