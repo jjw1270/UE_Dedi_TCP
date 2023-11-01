@@ -2,12 +2,12 @@
 #include <fstream>
 #include <string>
 #include <process.h>
+#include <set>
 
 using namespace std;
 
 #include "Packet.h"
 #include "PacketMaker.h"
-
 
 //--mysql
 #include "mysql_connection.h"
@@ -23,16 +23,10 @@ using namespace std;
 
 #pragma comment(lib, "ws2_32")
 
-#define FD_SETSIZE				100
+#define FD_SETSIZE 64
 
 fd_set Reads;
 fd_set CopyReads;
-
-// Used for Regist User
-map<unsigned short, UserData> TempUserList;
-
-// Use when User Login
-map<unsigned short, UserData> UserList;
 
 bool GetConfigFromFile(string& OutServer, string& OutUserName, string& OutPassword)
 {
@@ -65,6 +59,8 @@ bool GetConfigFromFile(string& OutServer, string& OutUserName, string& OutPasswo
 	ConfigFile.close();
 	return true;
 }
+
+unsigned WINAPI LoginServerThread(void* arg);
 
 unsigned WINAPI ServerThread(void* arg);
 
@@ -116,6 +112,51 @@ int main()
 		system("pause");
 		exit(-1);
 	}
+
+	/*Connect to LoginServer-----------------------------------------------------*/
+	SOCKET ServerSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (ServerSocket == INVALID_SOCKET)
+	{
+		cout << "Fail." << endl;
+		cout << "ServerSocket Error : " << GetLastError() << endl;
+		system("pause");
+		exit(-1);
+	}
+
+	SOCKADDR_IN ServerSockAddr;
+	memset(&ServerSockAddr, 0, sizeof(ServerSockAddr));
+	ServerSockAddr.sin_family = AF_INET;
+	ServerSockAddr.sin_port = htons(8881);
+	Result = inet_pton(AF_INET, "127.0.0.1", &(ServerSockAddr.sin_addr.s_addr));
+	if (Result == SOCKET_ERROR)
+	{
+		cout << "inet_pton Error : " << GetLastError() << endl;
+		system("pause");
+		exit(-1);
+	}
+
+	Result = connect(ServerSocket, (SOCKADDR*)&ServerSockAddr, sizeof(ServerSockAddr));
+	if (Result == SOCKET_ERROR)
+	{
+		if (GetLastError() == 10061)
+		{
+			cout << "Server Is Sleeping.." << endl;
+		}
+		else
+		{
+			cout << "connect Error : " << GetLastError() << endl;
+		}
+		system("pause");
+		exit(-1);
+	}
+	else
+	{
+		cout << "Connect to Login Server" << endl;
+	}
+
+	_beginthreadex(nullptr, 0, LoginServerThread, (void*)&ServerSocket, 0, nullptr);
+
+	/*---------------------------------------------------------------------------*/
 
 	SOCKET ListenSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (ListenSocket == INVALID_SOCKET)
@@ -202,18 +243,145 @@ int main()
 		else
 		{
 			// when no changes on socket count while timeout
-			continue;
 		}
 	}
 
 	// Clean Up
 
 	closesocket(ListenSocket);
+	closesocket(ServerSocket);
 	WSACleanup();
 
 	delete Sql_Connection;
 
 	system("pause");
+
+	return 0;
+}
+
+// forward declare funcs
+void RecvError(SOCKET& ClientSocket);
+void SendError(SOCKET& ClientSocket);
+void ProcessPacket(SOCKET& ClientSocket, const EPacket& PacketType, char*& Payload);
+
+const int HeaderSize = 4;
+
+// AS CLIENT
+unsigned WINAPI LoginServerThread(void* arg)
+{
+	SOCKET ServerSocket = *(SOCKET*)arg;
+
+	printf("[%d] LoginServer Thread Started\n", (unsigned short)ServerSocket);
+
+	bool bSendSuccess = PacketMaker::SendPacket(&ServerSocket, EPacket::C2S_ReqDediTCPConnect);
+	if (!bSendSuccess)
+	{
+		SendError(ServerSocket);
+		return 0;
+	}
+
+	while (true)
+	{
+		// Recv Header
+		char HeaderBuffer[HeaderSize] = { 0, };
+		int RecvByte = recv(ServerSocket, HeaderBuffer, HeaderSize, MSG_WAITALL);
+		if (RecvByte == 0 || RecvByte < 0) //close, Error
+		{
+			RecvError(ServerSocket);
+			break;
+		}
+
+		unsigned short PayloadSize = 0;
+		unsigned short PacketType = 0;
+
+		memcpy(&PayloadSize, HeaderBuffer, 2);
+		memcpy(&PacketType, &HeaderBuffer[2], 2);
+
+		printf("[Receive] Payload size : %d, Packet type : %d\n", PayloadSize, PacketType);
+
+		char* Payload = nullptr;
+
+		// Recv Payload
+		if (PayloadSize > 0)
+		{
+			Payload = new char[PayloadSize + 1];
+
+			RecvByte = recv(ServerSocket, Payload, PayloadSize, MSG_WAITALL);
+			if (RecvByte == 0 || RecvByte < 0)
+			{
+				//close, recv Error
+				RecvError(ServerSocket);
+				break;
+			}
+			Payload[PayloadSize] = '\0';
+			cout << "Data : " << Payload << endl;
+		}
+
+		ProcessPacket(ServerSocket, static_cast<EPacket>(PacketType), Payload);
+
+		delete[] Payload;
+		Payload = nullptr;
+	}
+
+	return 0;
+}
+
+// AS SERVER
+unsigned WINAPI ServerThread(void* arg)
+{
+	SOCKET ClientSocket = *(SOCKET*)arg;
+
+	printf("[%d] Server Thread Started\n", (unsigned short)ClientSocket);
+
+	bool bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ConnectDediSuccess);
+	if (!bSendSuccess)
+	{
+		SendError(ClientSocket);
+		return 0;
+	}
+
+	while (true)
+	{
+		// Recv Header
+		char HeaderBuffer[HeaderSize] = { 0, };
+		int RecvByte = recv(ClientSocket, HeaderBuffer, HeaderSize, MSG_WAITALL);
+		if (RecvByte == 0 || RecvByte < 0) //close, Error
+		{
+			RecvError(ClientSocket);
+			break;
+		}
+
+		unsigned short PayloadSize = 0;
+		unsigned short PacketType = 0;
+
+		memcpy(&PayloadSize, HeaderBuffer, 2);
+		memcpy(&PacketType, &HeaderBuffer[2], 2);
+
+		printf("[Receive] Payload size : %d, Packet type : %d\n", PayloadSize, PacketType);
+
+		char* Payload = nullptr;
+
+		// Recv Payload
+		if (PayloadSize > 0)
+		{
+			Payload = new char[PayloadSize + 1];
+
+			RecvByte = recv(ClientSocket, Payload, PayloadSize, MSG_WAITALL);
+			if (RecvByte == 0 || RecvByte < 0)
+			{
+				//close, recv Error
+				RecvError(ClientSocket);
+				break;
+			}
+			Payload[PayloadSize] = '\0';
+			cout << "Data : " << Payload << endl;
+		}
+
+		ProcessPacket(ClientSocket, static_cast<EPacket>(PacketType), Payload);
+
+		delete[] Payload;
+		Payload = nullptr;
+	}
 
 	return 0;
 }
@@ -226,121 +394,66 @@ void RecvError(SOCKET& ClientSocket)
 	int ClientSockAddrLength = sizeof(ClientSocketAddr);
 	getpeername(ClientSocket, (SOCKADDR*)&ClientSocketAddr, &ClientSockAddrLength);
 
-	SOCKET DisconnectSocket = ClientSocket;
-	closesocket(ClientSocket);
-	FD_CLR(ClientSocket, &Reads);
-	CopyReads = Reads;
-
 	char IP[1024] = { 0, };
 	inet_ntop(AF_INET, &ClientSocketAddr.sin_addr.s_addr, IP, 1024);
 	cout << "disconnected : " << IP << endl;
 
-	if (TempUserList.count((unsigned short)DisconnectSocket) > 0)
-	{
-		TempUserList.erase(TempUserList.find((unsigned short)DisconnectSocket));
-	}
+	/*Clean UP-----------------------------------------------------------------------------*/
+	const unsigned short ClientNumber = (unsigned short)ClientSocket;
+	/*-------------------------------------------------------------------------------------*/
 
-	string DisconnectUserNickName = UserList[(unsigned short)DisconnectSocket].NickName;
-
-	if (UserList.count((unsigned short)DisconnectSocket) > 0)
-	{
-		UserList.erase(UserList.find((unsigned short)DisconnectSocket));
-	}
-
-	string BroadCastMessage = DisconnectUserNickName + " has left.";
-	PacketMaker::SendPacketToAllConnectedClients(UserList, EPacket::S2C_CastMessage, BroadCastMessage.data());
+	closesocket(ClientSocket);
+	FD_CLR(ClientSocket, &Reads);
+	CopyReads = Reads;
 }
 
 void SendError(SOCKET& ClientSocket)
 {
 	cout << "Server Send Error : " << GetLastError() << endl;
-
-	//SOCKADDR_IN ClientSocketAddr;
-	//int ClientSockAddrLength = sizeof(ClientSocketAddr);
-	//getpeername(ClientSocket, (SOCKADDR*)&ClientSocketAddr, &ClientSockAddrLength);
-
-	//SOCKET DisconnectSocket = ClientSocket;
-	//closesocket(ClientSocket);
-	//FD_CLR(ClientSocket, &Reads);
-	//CopyReads = Reads;
-
-	//char IP[1024] = { 0, };
-	//inet_ntop(AF_INET, &ClientSocketAddr.sin_addr.s_addr, IP, 1024);
-	//cout << "disconnected : " << IP << endl;
-
-	//if (TempUserList.count((unsigned short)DisconnectSocket) > 0)
-	//{
-	//	TempUserList.erase(TempUserList.find((unsigned short)DisconnectSocket));
-	//}
-
-	//if (UserList.count((unsigned short)DisconnectSocket) > 0)
-	//{
-	//	UserList.erase(UserList.find((unsigned short)DisconnectSocket));
-	//}
 }
 
+// Used for Manage Dedicate Server
+set<unsigned short> DediServers;
 
-const int HeaderSize = 4;
-unsigned WINAPI ServerThread(void* arg)
+SOCKET LoginTCPServer{ INVALID_SOCKET };
+
+void ProcessPacket(SOCKET& ClientSocket, const EPacket& PacketType, char*& Payload)
 {
-	SOCKET ClientSocket = *(SOCKET*)arg;
-	unsigned short UserNumber = (unsigned short)ClientSocket;
+	const unsigned short UserNumber = (unsigned short)ClientSocket;
 
-	printf("[%d] Server Thread Started\n", UserNumber);
+	bool bSendSuccess = false;
+	sql::PreparedStatement* Sql_PreStatement = nullptr;
+	sql::ResultSet* Sql_Result = nullptr;
 
-	bool bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_LoginSuccess, "hello!");
-	if (!bSendSuccess)
+	// Packet for Login TCP Server
+	if (PacketType >= EPacket::C2S_ReqDediTCPConnect)
 	{
-		SendError(ClientSocket);
-		return 0;
+		switch (PacketType)
+		{
+		case EPacket::S2C_ConnectSuccess:
+		{
+			
+		}
+		break;
+		case EPacket::S2C_ReqDediTCPNewDedi:
+		{
+
+		}
+		break;
+		default:
+			break;
+		}
 	}
-	
-	while (true)
+	// Packet for Dedi Server
+	else
 	{
-		// Recv PacketSize
-		unsigned short PayloadSize = 0;
-		int RecvByte = recv(ClientSocket, (char*)(&PayloadSize), 2, MSG_WAITALL);
-		if (RecvByte == 0 || RecvByte < 0) //close, Error
+		switch (PacketType)
 		{
-			cout << "Recv Error : " << GetLastError() << endl;
+		default:
 			break;
-		}
-		//cout << "Receive Payload size : " << PayloadSize << endl;
-
-		unsigned short PacketType = 0;
-		RecvByte = recv(ClientSocket, (char*)(&PacketType), 2, MSG_WAITALL);
-		if (RecvByte == 0 || RecvByte < 0)
-		{
-			//close, recv Error
-			RecvError(ClientSocket);
-			break;
-		}
-
-		cout << "Receive Packet Payload size : " << PayloadSize << "\nReceive Packet type : " << PacketType << endl;
-
-		PayloadSize = ntohs(PayloadSize);
-		PacketType = ntohs(PacketType);
-
-		cout << "Receive Packet Payload size : " << PayloadSize << "\nReceive Packet type : " << PacketType << endl;
-
-		if (PayloadSize > 0)
-		{
-			//Recv Code, Data
-			char* Payload = new char[PayloadSize];
-
-			RecvByte = recv(ClientSocket, Payload, PayloadSize, MSG_WAITALL);
-			if (RecvByte == 0 || RecvByte < 0)
-			{
-				//close, recv Error
-				RecvError(ClientSocket);
-				break;
-			}
-
-			cout << "Data : " << Payload << endl;
-
-			delete[] Payload;
 		}
 	}
 
-	return 0;
+	delete Sql_Result;
+	delete Sql_PreStatement;
 }

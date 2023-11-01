@@ -2,7 +2,7 @@
 #include <fstream>
 #include <string>
 #include <process.h>
-#include <vector>
+#include <list>
 
 using namespace std;
 
@@ -295,13 +295,13 @@ public:
 };
 
 // Used for User Sign Up
-map<unsigned short, UserData> TempUserList;
+map<SOCKET, UserData> TempUserList;
 
 // Dedi TCP Server
 SOCKET DediTCPServer{ INVALID_SOCKET };
 
 // On MatchMaking Users
-vector<SOCKET> OnMatchMakingUsers;
+list<SOCKET> OnMatchMakingUsers;
 
 void RecvError(SOCKET& ClientSocket)
 {
@@ -316,11 +316,9 @@ void RecvError(SOCKET& ClientSocket)
 	cout << "disconnected : " << IP << endl;
 
 	/*Clean UP-----------------------------------------------------------------------------*/
-	const unsigned short ClientNumber = (unsigned short)ClientSocket;
-
-	if (TempUserList.count(ClientNumber > 0))
+	if (TempUserList.count(ClientSocket) > 0)
 	{
-		TempUserList.erase(TempUserList.find(ClientNumber));
+		TempUserList.erase(ClientSocket);
 	}
 
 	// Error on DediTCPServer
@@ -329,8 +327,7 @@ void RecvError(SOCKET& ClientSocket)
 		DediTCPServer = INVALID_SOCKET;
 	}
 
-	auto RemoveEnd = remove_if(OnMatchMakingUsers.begin(), OnMatchMakingUsers.end(), [ClientSocket](const SOCKET& OnMatchMakingUserSocket) { return ClientSocket == OnMatchMakingUserSocket; });
-	OnMatchMakingUsers.erase(RemoveEnd, OnMatchMakingUsers.end());
+	OnMatchMakingUsers.remove(ClientSocket);
 	/*-------------------------------------------------------------------------------------*/
 
 	closesocket(ClientSocket);
@@ -341,23 +338,6 @@ void RecvError(SOCKET& ClientSocket)
 void SendError(SOCKET& ClientSocket)
 {
 	cout << "Server Send Error : " << GetLastError() << endl;
-
-	//SOCKADDR_IN ClientSocketAddr;
-	//int ClientSockAddrLength = sizeof(ClientSocketAddr);
-	//getpeername(ClientSocket, (SOCKADDR*)&ClientSocketAddr, &ClientSockAddrLength);
-
-	//char IP[1024] = { 0, };
-	//inet_ntop(AF_INET, &ClientSocketAddr.sin_addr.s_addr, IP, 1024);
-	//cout << "disconnected : " << IP << endl;
-
-	//if (TempUserList.count((unsigned short)ClientSocket) > 0)
-	//{
-	//	TempUserList.erase(TempUserList.find((unsigned short)ClientSocket));
-	//}
-
-	//closesocket(ClientSocket);
-	//FD_CLR(ClientSocket, &Reads);
-	//CopyReads = Reads;
 }
 
 void ProcessPacket(SOCKET& ClientSocket, const EPacket& PacketType, char*& Payload)
@@ -369,7 +349,7 @@ void ProcessPacket(SOCKET& ClientSocket, const EPacket& PacketType, char*& Paylo
 	sql::ResultSet* Sql_Result = nullptr;
 
 	// Packet for Dedi TCP Server
-	if (static_cast<int>(PacketType) >= 8000)
+	if (PacketType >= EPacket::C2S_ReqDediTCPConnect)
 	{
 		switch (PacketType)
 		{
@@ -482,7 +462,7 @@ void ProcessPacket(SOCKET& ClientSocket, const EPacket& PacketType, char*& Paylo
 				{
 					//cout << "Make new Temp User" << endl;
 					UserData NewTempUser(NewUserID, NewUserPwd);
-					TempUserList.emplace(UserNumber, NewTempUser);
+					TempUserList.emplace(ClientSocket, NewTempUser);
 
 					bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignUpIDPwd_Success);
 					if (!bSendSuccess)
@@ -521,12 +501,12 @@ void ProcessPacket(SOCKET& ClientSocket, const EPacket& PacketType, char*& Paylo
 				// Create New Userconfig
 				SqlQuery = "INSERT INTO userconfig(ID, Password, NickName) VALUES(?,?,?)";
 				Sql_PreStatement = Sql_Connection->prepareStatement(SqlQuery);
-				Sql_PreStatement->setString(1, TempUserList[UserNumber].UserID);
-				Sql_PreStatement->setString(2, TempUserList[UserNumber].Password);
+				Sql_PreStatement->setString(1, TempUserList[ClientSocket].UserID);
+				Sql_PreStatement->setString(2, TempUserList[ClientSocket].Password);
 				Sql_PreStatement->setString(3, MyUtility::MultibyteToUtf8(NewNickName));
 				Sql_PreStatement->execute();
 
-				TempUserList.erase(UserNumber);
+				TempUserList.erase(ClientSocket);
 
 				bSendSuccess = PacketMaker::SendPacket(&ClientSocket, EPacket::S2C_ResSignUpNickName_Success);
 				if (!bSendSuccess)
@@ -580,8 +560,7 @@ void ProcessPacket(SOCKET& ClientSocket, const EPacket& PacketType, char*& Paylo
 		break;
 		case EPacket::C2S_ReqCancelMatchMaking:
 		{
-			auto RemoveEnd = remove_if(OnMatchMakingUsers.begin(), OnMatchMakingUsers.end(), [ClientSocket](const SOCKET& OnMatchMakingUserSocket) { return ClientSocket == OnMatchMakingUserSocket; });
-			OnMatchMakingUsers.erase(RemoveEnd, OnMatchMakingUsers.end());
+			OnMatchMakingUsers.remove(ClientSocket);
 		}
 		break;
 		default:

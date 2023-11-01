@@ -13,7 +13,7 @@ enum class EPacket
 	S2C_CastMessage											= 3,
 	//C2S_CastMessage										= 4,	//reserved
 
-	S2C_ConnectSuccess										= 100,  //reserved
+	S2C_ConnectSuccess										= 100,
 
 	C2S_ReqSignIn											= 1000,
 	S2C_ResSignIn_Success									= 1001,
@@ -37,7 +37,6 @@ enum class EPacket
 	C2S_ReqDediTCPConnect									= 8000,
 
 	S2C_ReqDediTCPNewDedi									= 8100,
-
 
 	Max,
 };
