@@ -176,6 +176,8 @@ void UClientLoginSubsystem::ManageRecvPacket()
 		case ELoginPacket::S2C_ResSignUpNickName_Fail_ExistNickName:
 			RecvPacketDelegate.Broadcast(TEXT("닉네임이 이미 존재합니다"), PacketCode, false);
 			break;
+		case ELoginPacket::S2C_ResMatchMaking_DediIP:
+			RecvPacketDelegate.Broadcast(RecvPacketData.Payload, PacketCode, false);
 		default:
 			break;
 		}

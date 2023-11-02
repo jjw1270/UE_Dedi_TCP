@@ -20,8 +20,9 @@ enum class EDediPacket
 	S2C_CastMessage = 3,
 	//C2S_CastMessage										= 4,  //reserved
 
-	S2C_ConnectSuccess = 100,
+	S2C_ConnectSuccess										= 100,
 
+	C2S_ConnectSuccess										= 4000,
 
 
 	Max,

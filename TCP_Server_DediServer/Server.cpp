@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <process.h>
+#include <tchar.h>
 
 using namespace std;
 
@@ -378,24 +379,23 @@ unsigned WINAPI ServerThread(void* arg)
 	return 0;
 }
 
-const int MaxPlayerInDediServer = 2;
-
-struct DediServerInfo
-{
-public:
-	DediServerInfo() : IP(), bCanJoin(true) {}
-	DediServerInfo(const string& NewIP)
-		: IP(NewIP), bCanJoin(true)
-	{
-	}
-
-	string IP;
-	//int CurrentPlayer[MaxPlayerInDediServer] = { 0, };
-	bool bCanJoin = false;
-};
+//const int MaxPlayerInDediServer = 2;
+//struct DediServerInfo
+//{
+//public:
+//	DediServerInfo() : IP(), bCanJoin(true) {}
+//	DediServerInfo(const string& NewIP)
+//		: IP(NewIP), bCanJoin(true)
+//	{
+//	}
+//
+//	string IP;
+//	//int CurrentPlayer[MaxPlayerInDediServer] = { 0, };
+//	bool bCanJoin = false;
+//};
 
 // Used for Manage Dedicate Server
-map<SOCKET, DediServerInfo> DediServers;
+//map<SOCKET, string> DediServers;
 
 SOCKET LoginTCPServer{ INVALID_SOCKET };
 
@@ -412,7 +412,15 @@ void RecvError(SOCKET& ClientSocket)
 	cout << "disconnected : " << IP << endl;
 
 	/*Clean UP-----------------------------------------------------------------------------*/
-	const unsigned short ClientNumber = (unsigned short)ClientSocket;
+	//if (DediServers.count(ClientSocket) > 0)
+	//{
+	//	DediServers.erase(ClientSocket);
+	//}
+
+	if (LoginTCPServer == ClientSocket)
+	{
+		LoginTCPServer = INVALID_SOCKET;
+	}
 	/*-------------------------------------------------------------------------------------*/
 
 	closesocket(ClientSocket);
@@ -434,12 +442,15 @@ void ProcessPacket(SOCKET& TargetSocket, const EPacket& PacketType, char*& Paylo
 	sql::ResultSet* Sql_Result = nullptr;
 
 	// Packet for Login TCP Server
-	if (PacketType >= EPacket::C2S_ReqDediTCPConnect || PacketType == EPacket::S2C_ConnectSuccess)
+	if (PacketType < EPacket::C2S_ConnectSuccess)
 	{
 		switch (PacketType)
 		{
 		case EPacket::S2C_ConnectSuccess:
 		{
+			cout << "Connect with LoginServer" << endl;
+			LoginTCPServer = TargetSocket;
+
 			bSendSuccess = PacketMaker::SendPacket(&TargetSocket, EPacket::C2S_ReqDediTCPConnect);
 			if (!bSendSuccess)
 			{
@@ -448,33 +459,23 @@ void ProcessPacket(SOCKET& TargetSocket, const EPacket& PacketType, char*& Paylo
 			}
 		}
 		break;
-		case EPacket::S2C_ReqAvailableDediServer:
+		case EPacket::S2C_ReqDediServer:
 		{
-			bool bHasAvailableDediServer = false;
-			for (const auto& DediServer : DediServers)
-			{
-				if (DediServer.second.bCanJoin)
-				{
-					bHasAvailableDediServer = true;
+			srand(time(NULL));
+			int randomPort = rand() % 501 + 9000;  // 9000부터 9500까지의 랜덤 포트 번호 생성
 
-					bSendSuccess = PacketMaker::SendPacket(&TargetSocket, EPacket::C2S_ResAvailableDediServer, DediServer.second.IP.c_str());
-					if (!bSendSuccess)
-					{
-						SendError(TargetSocket);
-						break;
-					}
+			TCHAR command[256];
+			_stprintf_s(command, sizeof(command) / sizeof(TCHAR), _T("-Port=%d"), randomPort);
 
-					break;
-				}
-			}
-
-			if (!bHasAvailableDediServer)
-			{
-				//Run in Dedi TCP
-				cout << "Run Dedi Server.. ";
-				int bRunSuccess = system("F:\\UnrealProjects\\AMyProject\\TCPStudy1\\Package\\Windows\\TCPStudy1\\Binaries\\Win64\\TCPStudy1ServerWithLog.exe.lnk");
-				cout << ((bRunSuccess == 0) ? "Success" : "Failure") << endl;
-			}
+			//Run in Dedi TCP
+			ShellExecute(
+				NULL,   // 부모 창의 핸들. NULL이면 데스크톱이 부모 창이 됩니다.
+				_T("open"),   // 동작을 지정하는 문자열. 대부분의 경우 "open"을 사용합니다.
+				_T("TCPStudy1ServerWithLog.exe.lnk"),   // 실행하려는 프로그램의 경로
+				NULL,   // 파라미터. 필요하지 않으면 NULL을 사용합니다.
+				NULL,   // 실행 파일이나 문서가 있는 디렉토리. 필요하지 않으면 NULL을 사용합니다.
+				SW_SHOW  // 프로그램을 어떻게 표시할지 지정하는 플래그. 일반적으로 SW_SHOW를 사용합니다.
+			);
 		}
 		break;
 		default:
@@ -486,6 +487,28 @@ void ProcessPacket(SOCKET& TargetSocket, const EPacket& PacketType, char*& Paylo
 	{
 		switch (PacketType)
 		{
+		case EPacket::C2S_ConnectSuccess:
+		{
+			SOCKADDR_IN DediSocketAddr;
+			int DediSocketAddrLength = sizeof(DediSocketAddr);
+			getpeername(TargetSocket, (SOCKADDR*)&DediSocketAddr, &DediSocketAddrLength);
+
+			char IP[1024] = { 0, };
+			inet_ntop(AF_INET, &DediSocketAddr.sin_addr.s_addr, IP, 1024);
+			cout << "Dedi Server IP : " << IP << endl;
+
+			unsigned short port = DediSocketAddr.sin_port;
+
+			//string SendData = string(IP) + ":" + to_string(port);
+
+			bSendSuccess = PacketMaker::SendPacket(&LoginTCPServer, EPacket::C2S_ResDediServer, IP);
+			if (!bSendSuccess)
+			{
+				SendError(LoginTCPServer);
+				break;
+			}
+		}
+		break;
 		default:
 			break;
 		}

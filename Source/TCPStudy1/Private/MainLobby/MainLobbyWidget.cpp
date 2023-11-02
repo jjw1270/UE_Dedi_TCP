@@ -44,14 +44,20 @@ void UMainLobbyWidget::NativeDestruct()
 
 void UMainLobbyWidget::OnRecvPacketDelegate(const FString& InfoMessage, const int32& PacketCode, bool bSuccess)
 {
-	//UWorld* World = GetWorld();
-	//CHECK_VALID(World);
+	UWorld* World = GetWorld();
+	CHECK_VALID(World);
 
-	//switch (static_cast<ELoginPacket>(PacketCode))
-	//{
-	//default:
-	//	break;
-	//}
+	switch (static_cast<ELoginPacket>(PacketCode))
+	{
+	case ELoginPacket::S2C_ResMatchMaking_DediIP:
+	{
+		ABLOG(Warning, TEXT("Dedi Server IP : %s"), *InfoMessage);
+		UGameplayStatics::OpenLevel(World, FName(InfoMessage));
+	}
+	break;
+	default:
+		break;
+	}
 }
 
 void UMainLobbyWidget::MatchMakingTimer()

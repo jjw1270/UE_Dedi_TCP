@@ -340,6 +340,8 @@ void SendError(SOCKET& ClientSocket)
 	cout << "Server Send Error : " << GetLastError() << endl;
 }
 
+const int MaxPlayerInDediServer = 2;
+
 void ProcessPacket(SOCKET& ClientSocket, const EPacket& PacketType, char*& Payload)
 {
 	const unsigned short UserNumber = (unsigned short)ClientSocket;
@@ -357,6 +359,24 @@ void ProcessPacket(SOCKET& ClientSocket, const EPacket& PacketType, char*& Paylo
 		{
 			cout << "Connect with DediTCPServer" << endl;
 			DediTCPServer = ClientSocket;
+		}
+		break;
+		case EPacket::C2S_ResDediServer:
+		{
+			string DediIP = Payload;
+			cout << "Dedi Server IP : " << DediIP << endl;
+
+			for (int i = 0; i < MaxPlayerInDediServer; ++i)
+			{
+				bSendSuccess = PacketMaker::SendPacket(&OnMatchMakingUsers.front(), EPacket::S2C_ResMatchMaking_DediIP, DediIP.c_str());
+				if (!bSendSuccess)
+				{
+					SendError(DediTCPServer);
+					break;
+				}
+
+				OnMatchMakingUsers.pop_front();
+			}
 		}
 		break;
 		default:
@@ -519,16 +539,19 @@ void ProcessPacket(SOCKET& ClientSocket, const EPacket& PacketType, char*& Paylo
 		break;
 		case EPacket::C2S_ReqMatchMaking:
 		{
-			// to Dedi TCP Server -> Req available Dedi Server
-			bSendSuccess = PacketMaker::SendPacket(&DediTCPServer, EPacket::S2C_ReqAvailableDediServer);
-			if (!bSendSuccess)
-			{
-				SendError(DediTCPServer);
-				break;
-			}
-
 			// Add this user to wait MatchMaking List
 			OnMatchMakingUsers.push_back(ClientSocket);
+
+			if (OnMatchMakingUsers.size() >= MaxPlayerInDediServer)
+			{
+				// to Dedi TCP Server -> Req available Dedi Server
+				bSendSuccess = PacketMaker::SendPacket(&DediTCPServer, EPacket::S2C_ReqDediServer);
+				if (!bSendSuccess)
+				{
+					SendError(DediTCPServer);
+					break;
+				}
+			}
 		}
 		break;
 		case EPacket::C2S_ReqCancelMatchMaking:

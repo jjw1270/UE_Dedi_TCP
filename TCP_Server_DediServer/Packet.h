@@ -19,12 +19,12 @@ enum class EPacket
 
 	C2S_ReqDediTCPConnect									= 3000,
 
-	S2C_ReqAvailableDediServer								= 3100,
-	C2S_ResAvailableDediServer								= 3101,
+	S2C_ReqDediServer										= 3100,
+	C2S_ResDediServer										= 3101,
 
 	///////////////////////////////////////////////////////////////////////////
 
-
+	C2S_ConnectSuccess										= 4000,
 
 	///////////////////////////////////////////////////////////////////////////
 

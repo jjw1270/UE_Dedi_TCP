@@ -16,4 +16,11 @@ void AMainGameGameMode::StartPlay()
 	CHECK_VALID(DediServerSubsystem);
 
 	DediServerSubsystem->ConnectToTCPDediServer();
+
+	FDediPacketData PacketData(EDediPacket::C2S_ConnectSuccess);
+	bool bSend = DediServerSubsystem->Send(PacketData);
+	if (!bSend)
+	{
+		ABLOG(Error, TEXT("Send Error"));
+	}
 }
