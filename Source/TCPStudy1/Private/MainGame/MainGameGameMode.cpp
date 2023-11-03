@@ -24,3 +24,22 @@ void AMainGameGameMode::StartPlay()
 		ABLOG(Error, TEXT("Send Error"));
 	}
 }
+
+void AMainGameGameMode::Logout(AController* Exiting)
+{
+	Super::Logout(Exiting);
+
+	ABLOG(Warning, TEXT("Player Logout"));
+
+	if (GetNumPlayers() == 1)
+	{
+		ABLOG(Warning, TEXT("RequestExit"));
+		FGenericPlatformMisc::RequestExit(false);
+	}
+}
+
+void AMainGameGameMode::EndMainGame()
+{
+	FString MainLobbyLevel = TEXT("MainLobbyLevel");
+	ProcessClientTravel(MainLobbyLevel, true, true);
+}

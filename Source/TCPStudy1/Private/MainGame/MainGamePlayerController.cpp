@@ -3,3 +3,10 @@
 
 #include "MainGamePlayerController.h"
 
+void AMainGamePlayerController::BeginPlay()
+{
+	Super::BeginPlay();
+
+	SetInputMode(FInputModeGameOnly());
+	SetShowMouseCursor(false);
+}

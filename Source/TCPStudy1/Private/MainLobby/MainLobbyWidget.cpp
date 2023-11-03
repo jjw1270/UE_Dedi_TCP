@@ -52,6 +52,7 @@ void UMainLobbyWidget::OnRecvPacketDelegate(const FString& InfoMessage, const in
 	case ELoginPacket::S2C_ResMatchMaking_DediIP:
 	{
 		ABLOG(Warning, TEXT("Dedi Server IP : %s"), *InfoMessage);
+		ClientLoginSubsystem->DestroySocket();
 		UGameplayStatics::OpenLevel(World, FName(InfoMessage));
 	}
 	break;

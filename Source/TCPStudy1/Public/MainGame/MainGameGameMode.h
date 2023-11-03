@@ -17,4 +17,10 @@ class TCPSTUDY1_API AMainGameGameMode : public AGameModeBase
 protected:
 	virtual void StartPlay() override;
 
+	virtual void Logout(AController* Exiting) override;
+
+public:
+	UFUNCTION(BlueprintCallable)
+	void EndMainGame();
+
 };

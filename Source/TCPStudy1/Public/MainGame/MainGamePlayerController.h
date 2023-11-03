@@ -14,4 +14,6 @@ class TCPSTUDY1_API AMainGamePlayerController : public APlayerController
 {
 	GENERATED_BODY()
 	
+protected:
+	virtual void BeginPlay() override;
 };

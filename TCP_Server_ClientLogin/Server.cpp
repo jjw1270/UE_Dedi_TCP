@@ -308,12 +308,13 @@ void RecvError(SOCKET& ClientSocket)
 	cout << "Server Recv Error : " << GetLastError() << endl;
 
 	SOCKADDR_IN ClientSocketAddr;
-	int ClientSockAddrLength = sizeof(ClientSocketAddr);
-	getpeername(ClientSocket, (SOCKADDR*)&ClientSocketAddr, &ClientSockAddrLength);
+	int ClientSocketAddrLength = sizeof(ClientSocketAddr);
+	getpeername(ClientSocket, (SOCKADDR*)&ClientSocketAddr, &ClientSocketAddrLength);
 
 	char IP[1024] = { 0, };
 	inet_ntop(AF_INET, &ClientSocketAddr.sin_addr.s_addr, IP, 1024);
-	cout << "disconnected : " << IP << endl;
+
+	cout << "Close Socket : " << IP << endl;
 
 	/*Clean UP-----------------------------------------------------------------------------*/
 	if (TempUserList.count(ClientSocket) > 0)
