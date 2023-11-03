@@ -1,7 +1,9 @@
 # UE_Dedi-TCP
  DB-TCP-Dedicated 연동 언리얼 프로젝트
 
-- 시연 영상 :  https://youtu.be/NLYECWXoDTc
+시연 영상
+
+[https://youtu.be/NLYECWXoDTc](https://youtu.be/pCMUmQRwZ0k)
 
 ---
 
